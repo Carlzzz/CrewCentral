@@ -100,6 +100,17 @@
 - **[Entity 1]**: [What it represents, key attributes without implementation]
 - **[Entity 2]**: [What it represents, relationships to other entities]
 
+## Constitution Check *(mandatory)*
+
+*对照 `.specify/memory/constitution.md` 自证；与宪章 MUST 冲突时不得静默忽略，须在 Assumptions 或计划中写明例外与替代控制。*
+
+- [ ] **固定技术栈**：本功能实现范围与宪章规定的技术栈一致，或已声明例外及批准路径。
+- [ ] **子路径部署**：若涉及前端路由、Cookie、API 前缀或代理，已说明与 Base Path 的一致性。
+- [ ] **双轨认证**：浏览器场景与客户端 API 的认证消费方式已区分；不涉及则注明 N/A 及原因。
+- [ ] **契约优先**：对外行为（路径、方法、认证、请求/响应、存储路径）均在 Requirements 或关联合同中有可验证描述。
+- [ ] **领域约束**：若触及技能包、可见性、上传、下载计数、设备上报或版本中心，与宪章「数据与存储约束」一致。
+- [ ] **安全与运维**：HTTPS/Secrets/管理鉴权/上传安全/日志要求中与本功能相关的部分已体现。
+
 ## Success Criteria *(mandatory)*
 
 <!--

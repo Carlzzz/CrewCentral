@@ -1,0 +1,131 @@
+openapi: 3.0.3
+info:
+  title: CrewCentral Download Center API
+  version: 0.1.0
+  description: |
+    基路径 `{BASE_PATH}` 与现有部署一致。公开读接口可匿名；管理写接口需 Session + admin。
+servers:
+  - url: https://example.com{BASE_PATH}
+    variables:
+      BASE_PATH:
+        default: /woicrew
+
+paths:
+  /api/v1/releases/latest:
+    get:
+      summary: 客户端升级检查（静默更新）
+      operationId: getLatestRelease
+      tags: [Releases, Client]
+      parameters:
+        - name: current_version
+          in: query
+          schema:
+            type: string
+          description: 当前客户端版本（语义化），可选
+      responses:
+        '200':
+          description: 统一 rc 包装见下方 components
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LatestReleaseResponse'
+
+  /api/v1/public/releases/download-context:
+    get:
+      summary: 落地页聚合数据（推荐平台、三平台链接、Release Notes、校验码）
+      operationId: getDownloadContext
+      tags: [Releases, Public]
+      parameters:
+        - name: User-Agent
+          in: header
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DownloadContextResponse'
+
+components:
+  schemas:
+    RcWrapper:
+      type: object
+      required: [rc]
+      properties:
+        rc:
+          type: integer
+          enum: [0, 1]
+        message:
+          type: string
+        data:
+          nullable: true
+
+    Platform:
+      type: string
+      enum: [windows, macos, linux]
+
+    AssetPublic:
+      type: object
+      properties:
+        platform: { $ref: '#/components/schemas/Platform' }
+        download_url: { type: string, format: uri }
+        file_name: { type: string }
+        file_size_bytes: { type: integer, nullable: true }
+        md5: { type: string }
+        sha256: { type: string }
+
+    ChangelogEntry:
+      type: object
+      required: [type, text]
+      properties:
+        type:
+          type: string
+          enum: [new, fix]
+        text:
+          type: string
+
+    DownloadContextResponse:
+      allOf:
+        - $ref: '#/components/schemas/RcWrapper'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                version: { type: string }
+                slogan: { type: string, description: 产品 Slogan 文案 }
+                logo_url: { type: string, format: uri }
+                recommended_platform:
+                  type: string
+                  nullable: true
+                  enum: [windows, macos, linux]
+                  description: 无法识别 UA 时为 null，三平台同等展示
+                primary_asset: { $ref: '#/components/schemas/AssetPublic' }
+                all_assets:
+                  type: array
+                  items: { $ref: '#/components/schemas/AssetPublic' }
+                release_notes_excerpt: { type: string }
+                changelog_entries:
+                  type: array
+                  items: { $ref: '#/components/schemas/ChangelogEntry' }
+
+    LatestReleaseResponse:
+      allOf:
+        - $ref: '#/components/schemas/RcWrapper'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                is_latest: { type: boolean }
+                current_version: { type: string, nullable: true }
+                target_version: { type: string, nullable: true }
+                update_policy:
+                  type: string
+                  enum: [optional, forced]
+                  nullable: true
+                assets:
+                  type: array
+                  items: { $ref: '#/components/schemas/AssetPublic' }
+                release_notes_excerpt: { type: string, nullable: true }

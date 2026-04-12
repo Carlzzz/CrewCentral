@@ -69,6 +69,13 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] T008 Configure error handling and logging infrastructure
 - [ ] T009 Setup environment configuration management
 
+宪章相关（按需纳入 Phase 2 或 Polish，见 `.specify/memory/constitution.md`）：
+
+- Base Path：`basename`、后端前缀、Cookie `Path`、反向代理与 spec/plan 一致
+- 契约：`contracts/` 与 OpenAPI/实现同步；静态路由先于动态冲突路由注册
+- 认证：Session 与 JWT 路径分离清晰；生产禁用不安全的调试开关
+- 可观测性：认证、上传、管理写操作、设备上报等关键路径具备日志
+
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
 ---

@@ -1,0 +1,44 @@
+﻿---
+description: Project Development Guidelines
+globs: ["**/*"]
+alwaysApply: true
+---
+# CrewCentral Development Guidelines
+
+Auto-generated from all feature plans. Last updated: 2026-04-07
+
+## Active Technologies
+- Python 3.11+（后端）；TypeScript 5.x（前端） + FastAPI、SQLAlchemy 2.x Async、Alembic、pydantic-settings、redis（async 客户端）、httpx（可选 GeoIP HTTP）、**PostgreSQL**（设备域主库，见 research）；既有 **auth-login** 模块扩展而非重写 (002-device-manage)
+- **Redis**（心跳/在线快照、计数缓存、Geo 查询缓存）；**PostgreSQL**（设备主档、审计、黑名单）；与仓库现有 SQLite 开发库可 **并存**（多数据源）或统一到 PG（部署策略见 `research.md`） (002-device-manage)
+- Python 3.11+（后端）；TypeScript 5.x（前端） + FastAPI、SQLAlchemy 2.x Async、Alembic、Pydantic v2、React 18、Vite 6、React Router、Tailwind CSS (003-skill-hub)
+- 技能元数据与授权配置存主库（SQLite 开发 / MySQL 或 PostgreSQL 生产）；技能包文件使用本地文件系统（后续可迁对象存储） (003-skill-hub)
+- 发布元数据与审计存主库（SQLite 开发 / MySQL 或 PostgreSQL 生产）；安装包仅引用 **OSS/静态文件 URL**（不存 BLOB） (004-download-center)
+- Python 3.11+（后端）；TypeScript 5.x（前端） + FastAPI、SQLAlchemy 2.x Async、Alembic、Pydantic v2；React 18、Vite 6、React Router、Tailwind CSS；Markdown 管线（`remark`/`rehype` 族或等价，见 research） (005-docs-page)
+- 文档主档与搜索索引字段存主库（SQLite 开发 / PostgreSQL 生产建议）；正文为 TEXT，**不**用富文本 BLOB (005-docs-page)
+
+- Python 3.11+（后端）；TypeScript 5.x（前端） + FastAPI、SQLAlchemy 2.x（AsyncSession）、Alembic、Pydantic v2、python-jose 或 PyJWT、passlib（bcrypt）或 argon2-cffi；uv（包管理）；React 18、Vite 6、React Router、Tailwind CSS (001-auth-login)
+
+## Project Structure
+
+```text
+backend/
+frontend/
+tests/
+```
+
+## Commands
+
+cd src; pytest; ruff check .
+
+## Code Style
+
+Python 3.11+（后端）；TypeScript 5.x（前端）: Follow standard conventions
+
+## Recent Changes
+- 005-docs-page: Added Python 3.11+（后端）；TypeScript 5.x（前端） + FastAPI、SQLAlchemy 2.x Async、Alembic、Pydantic v2；React 18、Vite 6、React Router、Tailwind CSS；Markdown 管线（`remark`/`rehype` 族或等价，见 research）
+- 004-download-center: Added Python 3.11+（后端）；TypeScript 5.x（前端） + FastAPI、SQLAlchemy 2.x Async、Alembic、Pydantic v2、React 18、Vite 6、React Router、Tailwind CSS
+- 003-skill-hub: Added Python 3.11+（后端）；TypeScript 5.x（前端） + FastAPI、SQLAlchemy 2.x Async、Alembic、Pydantic v2、React 18、Vite 6、React Router、Tailwind CSS
+
+
+<!-- MANUAL ADDITIONS START -->
+<!-- MANUAL ADDITIONS END -->

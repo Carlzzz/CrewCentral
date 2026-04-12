@@ -1,16 +1,20 @@
 <!--
 Sync Impact Report
-- Version: (seed) → 1.0.0
-- Modified principles: N/A (new seed document)
-- Added sections: Technology Stack, Contracts & Compatibility, Security & Ops, Governance
-- Removed sections: N/A
-- Templates: N/A (this file is meant to be copied into a new project)
+- Version: 1.0.0 → 1.1.0
+- Modified principles: 无（标题与治理章节扩充；原则 I–V 未改名）
+- Added sections: Governance 子节「修订程序」「版本策略」「符合性评审」
+- Removed sections: 无
+- Templates:
+  - .specify/templates/plan-template.md ✅ updated（Constitution Check 具体门禁）
+  - .specify/templates/spec-template.md ✅ updated（新增 Constitution Check 小节）
+  - .specify/templates/tasks-template.md ✅ updated（宪章相关任务提示）
+  - .specify/templates/commands/*.md ⚠ 路径不存在；已检查 .cursor/commands/*.md 无 CLAUDE 专用残留
 - Follow-up TODOs:
-  - TODO(AUTH_PROVIDER): Choose and implement a concrete auth provider (IdP/IAM/SSO) integration.
-  - TODO(SESSION_STORE): Decide whether to keep in-memory session or move to Redis/DB for HA.
+  - TODO(AUTH_PROVIDER): 选择并实现具体身份提供方（IdP/IAM/SSO）集成。
+  - TODO(SESSION_STORE): 决定是否将内存 Session 迁移至 Redis/DB 以支持 HA。
 -->
 
-# Central Control Constitution
+# CrewCentral Constitution
 
 ## Core Principles
 
@@ -36,7 +40,7 @@ uv。前端必须使用 React 18 + TypeScript + Vite 6 + React Router + Tailwind
 - **Web 管理端/上传等浏览器场景**：使用 Session（Cookie）维持登录态
 - **客户端 API 场景**：使用 Bearer JWT 调用受保护接口
 
-注：登录方式本身必须可插拔（Auth Adapter），由项目方选择具体登录体系（见“认证可插拔”）。
+注：登录方式本身必须可插拔（Auth Adapter），由项目方选择具体登录体系（见「认证可插拔」）。
 
 ### IV. 契约优先（Contract-First）
 对外 API、数据模型、文件存储映射必须在规格中明确定义，且实现不得擅自偏离：
@@ -94,7 +98,7 @@ uv。前端必须使用 React 18 + TypeScript + Vite 6 + React Router + Tailwind
 
 - **技能包**：ZIP 必须包含 `SKILL.md`；YAML frontmatter 至少校验 `slug/name/version/publisher`，其中
   `version` 与 `publisher` 强制非空；文件落盘规则固定为 `bundles/{slug}.zip`。
-- **技能可见性**：公开列表/搜索仅展示“已审批/已通过”状态；详情是否过滤状态必须在规格中定死并保持一致。
+- **技能可见性**：公开列表/搜索仅展示「已审批/已通过」状态；详情是否过滤状态必须在规格中定死并保持一致。
 - **上传策略**：按 `slug` 覆盖式 upsert（不维护历史版本链路）。
 - **下载计数**：下载成功后 `download_count + 1`。
 - **设备上报**：以 `device_uuid` 幂等 upsert；用户信息来自 JWT；是否保存 token 原文必须在规格中明确并落实
@@ -105,17 +109,34 @@ uv。前端必须使用 React 18 + TypeScript + Vite 6 + React Router + Tailwind
 
 - **HTTPS**：生产必须启用。
 - **Secrets**：`SESSION_SECRET` 与 `JWT_SECRET` 必须为高强度随机值，且相互独立。
-- **管理接口**：所有管理写接口必须执行 admin 鉴权；不得出现“仅前端隐藏、后端未鉴权”的实现。
+- **管理接口**：所有管理写接口必须执行 admin 鉴权；不得出现「仅前端隐藏、后端未鉴权」的实现。
 - **上传安全**：必须校验 ZIP 合法性与 `SKILL.md`；禁止路径穿越；禁止在日志中输出 token/密钥/上传文件敏感内容。
 - **可观测性**：必须具备基础运行日志（认证、上传、分片合并、管理操作、设备上报），但不强制审计系统。
 
 ## Governance
 
-本宪章用于新项目的规格驱动开发（spec-driven development），并覆盖与其冲突的临时约定。
-当需要新增原则、变更原则或扩大强制约束时，必须：
+本宪章用于 CrewCentral 及相关能力的规格驱动开发（SDD），并覆盖与其冲突的临时约定。
 
-- 更新宪章并记录变更原因与迁移影响
-- 以语义化版本（Semantic Versioning）递增版本号
-- 在每个 spec 的 “Constitution Check” 中验证符合性；如需例外，必须写明理由与替代控制
+### 修订程序
 
-**Version**: 1.0.0 | **Ratified**: 2026-03-31 | **Last Amended**: 2026-03-31
+- 任何新增原则、变更原则措辞或扩大 MUST 范围，必须先更新 `.specify/memory/constitution.md`；若仓库根目录存在
+  `constitution.md` 作为同步副本，必须一并更新。
+- 必须在文件顶部 Sync Impact Report（HTML 注释）中记录：版本变化、原则变更、模板同步状态、暂缓 TODO。
+- 对调用方或部署行为有重大影响的变更，必须在变更说明中写明迁移步骤或影响范围。
+
+### 版本策略
+
+宪章版本遵循语义化版本（Semantic Versioning）：
+
+- **MAJOR**：废除或重新定义原则、向后不兼容的治理变更。
+- **MINOR**：新增原则或章节，或对现有指导作实质性扩充。
+- **PATCH**：措辞澄清、错别字、不改变规范含义的编辑。
+
+### 符合性评审
+
+- 每个功能 `spec.md` 必须包含 **Constitution Check** 小节，并对照本宪章逐条自证；`plan.md` 在 Phase 0 前与 Phase 1
+  设计完成后须重复核验同一组门禁。
+- 如需例外，必须在 spec 的 Constitution Check 与 plan 的 Complexity Tracking 中同时写明理由与替代控制措施。
+- Code review 对涉及认证、Base Path、对外 API 契约或存储路径的改动，须能指出其宪章对齐依据（可简短）。
+
+**Version**: 1.1.0 | **Ratified**: 2026-03-31 | **Last Amended**: 2026-04-07

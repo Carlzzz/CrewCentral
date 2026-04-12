@@ -1,0 +1,224 @@
+openapi: 3.0.3
+info:
+  title: CrewCentral Skill Hub API (003-skill-hub)
+  version: 0.1.0
+  description: |
+    命名空间：`{BASE_PATH}/api/v1/skills/*`（客户端 JWT）与 `{BASE_PATH}/api/v1/admin/skills/*`（管理 Session + admin）。
+servers:
+  - url: https://example.com/woicrew
+paths:
+  /api/v1/skills/manifest:
+    get:
+      tags: [skills-client]
+      summary: 获取当前用户/设备可用技能清单与目标版本
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: device_uuid
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: platform
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: rc=0，返回可用技能数组
+        "401":
+          description: 未认证
+  /api/v1/skills/{skill_slug}/download-token:
+    post:
+      tags: [skills-client]
+      summary: 为指定技能版本申请短效下载凭据
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: skill_slug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [device_uuid, version]
+              properties:
+                device_uuid:
+                  type: string
+                version:
+                  type: string
+      parameters:
+        - name: platform
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: rc=0，返回短效 token 与过期时间
+        "403":
+          description: 无权限或版本不可用
+  /api/v1/skills/download:
+    get:
+      tags: [skills-client]
+      summary: 使用短效 token 下载技能包
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: zip 文件流
+        "403":
+          description: token 失效或主体不匹配
+  /api/v1/admin/skills:
+    get:
+      tags: [skills-admin]
+      summary: 后台技能大厅列表（支持分类筛选）
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: keyword
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: rc=0 list + total
+  /api/v1/admin/skills/upload:
+    post:
+      tags: [skills-admin]
+      summary: 上传技能包并创建新版本
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: rc=0 version created
+        "400":
+          description: 元数据解析或包校验失败
+  /api/v1/admin/skills/{skill_id}/versions:
+    get:
+      tags: [skills-admin]
+      summary: 查看技能版本历史与更新日志
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: skill_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: rc=0 versions
+  /api/v1/admin/skills/{skill_id}/toggle-dispatch:
+    post:
+      tags: [skills-admin]
+      summary: 一键分发开关（全设备或指定分组）
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: skill_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled, scope]
+              properties:
+                enabled:
+                  type: boolean
+                scope:
+                  type: string
+                  enum: [all_devices, group_only]
+                group_id:
+                  type: string
+      responses:
+        "200":
+          description: rc=0
+  /api/v1/admin/skills/assignments:
+    put:
+      tags: [skills-admin]
+      summary: 批量更新用户/用户组技能绑定与配置
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [target_type, target_id, skills]
+              properties:
+                target_type:
+                  type: string
+                  enum: [user, group]
+                target_id:
+                  type: string
+                skills:
+                  type: array
+                  items:
+                    type: object
+                    required: [skill_id, enabled]
+                    properties:
+                      skill_id:
+                        type: string
+                        format: uuid
+                      enabled:
+                        type: boolean
+                      config:
+                        type: object
+      responses:
+        "200":
+          description: rc=0 updated
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+    sessionAuth:
+      type: apiKey
+      in: cookie
+      name: session

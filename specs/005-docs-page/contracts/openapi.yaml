@@ -1,0 +1,239 @@
+openapi: 3.0.3
+info:
+  title: CrewCentral Docs API
+  version: 0.1.0
+  description: |
+    基路径 `{BASE_PATH}`。公开读接口匿名；管理写接口 Session + admin。
+servers:
+  - url: https://example.com{BASE_PATH}
+    variables:
+      BASE_PATH:
+        default: /woicrew
+
+paths:
+  /api/v1/public/docs/tree:
+    get:
+      summary: 导航树（含四大分区）
+      operationId: getDocTree
+      tags: [Docs, Public]
+      parameters:
+        - name: nav_section
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [getting_started, device, skill_dev, api_ref]
+      responses:
+        '200':
+          description: rc 包装
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocTreeResponse'
+
+  /api/v1/public/docs/pages/{slug}:
+    get:
+      summary: 按 slug 获取已发布正文
+      operationId: getDocPageBySlug
+      tags: [Docs, Public]
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+          description: 可为多段路径，如 intro/welcome（若实现选用）
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocPageResponse'
+
+  /api/v1/public/docs/search:
+    get:
+      summary: 全文搜索
+      operationId: searchDocs
+      tags: [Docs, Public]
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocSearchResponse'
+
+  /api/v1/admin/docs/tree:
+    get:
+      summary: 管理端完整树（含草稿）
+      operationId: getAdminDocTree
+      tags: [Docs, Admin]
+      security:
+        - sessionAuth: []
+      responses:
+        '200':
+          description: rc 包装，data.roots 同 DocTreeResponse
+
+  /api/v1/admin/docs/pages:
+    get:
+      summary: 文档列表（扁平）
+      operationId: listAdminDocPages
+      tags: [Docs, Admin]
+      security:
+        - sessionAuth: []
+      responses:
+        '200':
+          description: rc 包装，data.items
+    post:
+      summary: 创建文档节点（草稿或发布策略由 body 决定）
+      operationId: createDocPage
+      tags: [Docs, Admin]
+      security:
+        - sessionAuth: []
+      responses:
+        '200':
+          description: rc 包装
+
+  /api/v1/admin/docs/pages/{page_id}:
+    get:
+      summary: 单页详情
+      operationId: getAdminDocPage
+      tags: [Docs, Admin]
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: page_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: rc 包装
+    patch:
+      summary: 更新文档
+      operationId: patchAdminDocPage
+      tags: [Docs, Admin]
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: page_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: rc 包装
+    delete:
+      summary: 删除文档（有子节点时拒绝）
+      operationId: deleteAdminDocPage
+      tags: [Docs, Admin]
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: page_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: rc 包装
+
+  /api/v1/admin/docs/pages/{page_id}/publish:
+    post:
+      summary: 发布文档
+      operationId: publishAdminDocPage
+      tags: [Docs, Admin]
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: page_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: rc 包装
+
+components:
+  securitySchemes:
+    sessionAuth:
+      type: apiKey
+      in: cookie
+      name: session
+  schemas:
+    RcWrapper:
+      type: object
+      required: [rc]
+      properties:
+        rc: { type: integer, enum: [0, 1] }
+        message: { type: string }
+        data: { nullable: true }
+
+    NavSection:
+      type: string
+      enum: [getting_started, device, skill_dev, api_ref]
+
+    DocTreeNode:
+      type: object
+      properties:
+        id: { type: string }
+        slug: { type: string }
+        title: { type: string }
+        nav_section: { $ref: '#/components/schemas/NavSection' }
+        children:
+          type: array
+          items: { $ref: '#/components/schemas/DocTreeNode' }
+
+    DocTreeResponse:
+      allOf:
+        - $ref: '#/components/schemas/RcWrapper'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                roots:
+                  type: array
+                  items: { $ref: '#/components/schemas/DocTreeNode' }
+
+    DocPageResponse:
+      allOf:
+        - $ref: '#/components/schemas/RcWrapper'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                slug: { type: string }
+                title: { type: string }
+                body_md: { type: string }
+                nav_section: { $ref: '#/components/schemas/NavSection' }
+
+    SearchHit:
+      type: object
+      properties:
+        slug: { type: string }
+        title: { type: string }
+        snippet: { type: string, nullable: true }
+
+    DocSearchResponse:
+      allOf:
+        - $ref: '#/components/schemas/RcWrapper'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items: { $ref: '#/components/schemas/SearchHit' }

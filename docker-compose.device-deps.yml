@@ -1,0 +1,20 @@
+# Local PostgreSQL + Redis for 002-device-manage (optional; auth DB may stay on SQLite).
+services:
+  postgres-devices:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: crewcentral
+      POSTGRES_PASSWORD: crewcentral
+      POSTGRES_DB: crewcentral_devices
+    ports:
+      - "5433:5432"
+    volumes:
+      - crewcentral_pg_devices:/var/lib/postgresql/data
+
+  redis-devices:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+volumes:
+  crewcentral_pg_devices:

@@ -1,0 +1,1 @@
+"""CrewCentral FastAPI application package."""

@@ -1,0 +1,176 @@
+openapi: 3.0.3
+info:
+  title: CrewCentral Auth API (001-auth-login)
+  version: 0.1.0
+  description: |
+    命名空间遵循宪章：`{BASE_PATH}/auth/*`（浏览器重定向与 HTML 流）、`{BASE_PATH}/api/*`（JSON）。
+    本文档以 `BASE_PATH=/woicrew` 为示例；部署时须替换为实际值。
+
+servers:
+  - url: https://example.com/woicrew
+    description: 示例；生产须 HTTPS
+
+tags:
+  - name: auth-api
+    description: 客户端与集成方调用的 JSON API
+  - name: admin
+    description: 管理操作；须 admin 权限
+
+paths:
+  /api/v1/auth/refresh:
+    post:
+      tags: [auth-api]
+      summary: 使用续期凭证换取新的访问凭证（及可选轮换续期凭证）
+      operationId: refreshTokens
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token:
+                  type: string
+                  description: 当前有效的续期凭证
+      responses:
+        "200":
+          description: 成功（rc=0）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RcSuccessTokenBundle"
+        "401":
+          description: 续期凭证无效或已废除
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RcError"
+
+  /api/v1/admin/sessions/{session_id}/revoke:
+    post:
+      tags: [admin]
+      summary: 废除指定登录会话（及关联刷新链）
+      operationId: revokeSession
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: 已废除
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RcSuccessEmpty"
+        "403":
+          description: 非管理员
+        "404":
+          description: 会话不存在
+
+  /api/v1/auth/consent/confirm:
+    post:
+      tags: [auth-api]
+      summary: 在已登录 Session 下确认授权（授权确认页「确认授权」按钮）
+      description: |
+        校验 Cookie Session 与 `state` 对应 AuthorizationRequest；成功后返回 Custom URI 或重定向指令。
+        实现可选用 JSON + 前端再跳转，或 302；本合同以 JSON 形状为准。
+      operationId: confirmConsent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [state]
+              properties:
+                state:
+                  type: string
+                  description: 与进入授权页时一致的 state
+      responses:
+        "200":
+          description: 成功；data 含回传 URI 或片段参数（实现可二选一文档化）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RcSuccessConsent"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    RcError:
+      type: object
+      required: [rc, message]
+      properties:
+        rc:
+          type: integer
+          enum: [1]
+        message:
+          type: string
+
+    RcSuccessEmpty:
+      type: object
+      required: [rc, message]
+      properties:
+        rc:
+          type: integer
+          enum: [0]
+        message:
+          type: string
+        data:
+          type: object
+          nullable: true
+
+    RcSuccessTokenBundle:
+      type: object
+      required: [rc, message, data]
+      properties:
+        rc:
+          type: integer
+          enum: [0]
+        message:
+          type: string
+        data:
+          type: object
+          required: [access_token, refresh_token, token_type, expires_in]
+          properties:
+            access_token:
+              type: string
+            refresh_token:
+              type: string
+            token_type:
+              type: string
+              example: Bearer
+            expires_in:
+              type: integer
+              description: 访问令牌剩余有效秒数
+
+    RcSuccessConsent:
+      type: object
+      required: [rc, message, data]
+      properties:
+        rc:
+          type: integer
+          enum: [0]
+        message:
+          type: string
+        data:
+          type: object
+          required: [callback_uri]
+          properties:
+            callback_uri:
+              type: string
+              format: uri
+              description: 完整 custom scheme URI，含 access/refresh/state 等 query（或实现约定 fragment）
+            state:
+              type: string

@@ -31,7 +31,18 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+权威来源：`.specify/memory/constitution.md`（CrewCentral 项目宪章）。
+
+- [ ] **固定技术栈**：方案与 Python 3.11+/FastAPI/SQLAlchemy 2.x（Async）+ uv、React 18/TS/Vite 6/React Router/Tailwind
+  一致，或已在下方 Complexity Tracking 登记例外与替代控制。
+- [ ] **子路径部署**：Base Path 下前端 `basename`、后端路由前缀、Session Cookie `Path`、反向代理规则一致或可证等价。
+- [ ] **双轨认证**：浏览器 Session（Cookie）与客户端 Bearer JWT 均有明确设计与任务落点；Auth Adapter 边界清晰。
+- [ ] **契约优先**：API/数据模型/存储映射与 spec 及 `contracts/` 一致；Legacy 路由策略已写明。
+- [ ] **简化可扩展**：YAGNI；Session/文件存储/管理员来源/设备 token 等扩展点在规格或计划中边界明确。
+- [ ] **命名空间与响应**：`{BASE_PATH}/auth/*` 与 `{BASE_PATH}/api/*` 组织及客户端 `rc` 响应约定已覆盖。
+- [ ] **安全与运维**：HTTPS、Secrets 隔离、管理写接口鉴权、上传安全、基础运行日志在设计与任务中可追踪。
+
+如需偏离上述 MUST，必须在下方 **Complexity Tracking** 表中记录理由与替代控制。
 
 ## Project Structure
 
