@@ -32,7 +32,13 @@ async def hub_skill_index(
 ) -> JSONResponse:
     """契约：GET {baseUrl}/index.json — 返回 version + items（id/name/version/description/author/category/downloadUrl）。"""
     base = _hub_base_url(request)
-    rows = (await db.scalars(select(Skill).where(Skill.status == "active").order_by(Skill.updated_at.desc()))).all()
+    rows = (
+        await db.scalars(
+            select(Skill)
+            .where(Skill.status == "active", Skill.distribution_enabled.is_(True))
+            .order_by(Skill.updated_at.desc())
+        )
+    ).all()
     items: list[dict] = []
     for s in rows:
         if not s.latest_version_id:
@@ -72,7 +78,7 @@ async def hub_download_skill_zip(
 ):
     """契约：GET {downloadUrl} — application/zip。"""
     skill = await db.scalar(select(Skill).where(Skill.slug == skill_slug))
-    if skill is None or skill.status != "active":
+    if skill is None or skill.status != "active" or not skill.distribution_enabled:
         return JSONResponse(status_code=404, content={"detail": "skill not found"})
     ver = await db.scalar(
         select(SkillVersion).where(SkillVersion.skill_id == skill.id, SkillVersion.version == version)

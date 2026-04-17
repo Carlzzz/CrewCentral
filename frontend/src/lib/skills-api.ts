@@ -9,6 +9,8 @@ export type SkillListItem = {
   icon_url: string | null;
   status: string;
   latest_version: string | null;
+  /** 已开启分发：客户端 manifest / 下载 / 公开 index 仅包含此类技能 */
+  distribution_enabled?: boolean;
 };
 
 export type SkillVersionItem = {

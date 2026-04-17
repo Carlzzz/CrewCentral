@@ -37,7 +37,9 @@ export default function DownloadButtonGroup({ recommended, assets, onSelect, sel
             onClick={() => {
               if (!a) return;
               onSelect?.(p);
-              window.open(a.download_url, "_blank", "noopener,noreferrer");
+              const sep = a.download_url.includes("?") ? "&" : "?";
+              const withName = `${a.download_url}${sep}download_name=${encodeURIComponent(a.file_name)}`;
+              window.open(withName, "_blank", "noopener,noreferrer");
             }}
             className={[
               "min-w-[200px] rounded-xl border px-5 py-3 text-left text-sm font-medium transition",

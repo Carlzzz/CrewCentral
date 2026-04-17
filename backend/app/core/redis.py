@@ -87,6 +87,13 @@ async def get_kick_flag(device_uuid: str) -> bool:
     return v is not None
 
 
+async def clear_kick_flag(device_uuid: str) -> None:
+    r = await get_redis()
+    if r is None:
+        return
+    await r.delete(kick_key(device_uuid))
+
+
 async def expire_presence(device_id: str, ttl_sec: int = 3600) -> None:
     r = await get_redis()
     if r is None:

@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     session_secret: str = "change-me-session-secret-min-32-chars!!"
     jwt_secret: str = "change-me-jwt-secret-min-32-chars!!!!"
     jwt_algorithm: str = "HS256"
-    access_token_expire_minutes: int = 15
+    access_token_expire_minutes: int = 600
     refresh_token_expire_days: int = 7
     skip_auth: int = 0
     """1 = development only: bypass password check for /api/v1/auth/login."""
@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     # Download center (004-download-center) — defaults for landing when release omits branding
     client_download_default_logo_url: str = ""
     client_download_default_slogan: str = "CrewCentral 客户端"
+
+    # Proxy usage analytics (Elasticsearch)
+    es_node: str = ""
+    es_index: str = "woicrew-usage"
 
 
 @lru_cache

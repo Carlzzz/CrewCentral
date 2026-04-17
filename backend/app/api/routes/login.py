@@ -22,9 +22,6 @@ async def api_login(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     settings = get_settings()
-    req_row = await get_auth_request_by_state(db, body.state)
-    if req_row is None:
-        return rc_err("无效或已过期的 state")
 
     user = await db.scalar(select(User).where(User.email == body.email))
     if user is None:
@@ -35,19 +32,24 @@ async def api_login(
     elif not user.password_hash or not verify_password(body.password, user.password_hash):
         return rc_err("账号或密码错误")
 
-    await bind_user_to_request(db, req_row, user.id)
-    ws = WebSession(user_id=user.id, authorization_request_id=req_row.id)
+    if body.state:
+        req_row = await get_auth_request_by_state(db, body.state)
+        if req_row is None:
+            return rc_err("无效或已过期的 state")
+        await bind_user_to_request(db, req_row, user.id)
+        ws = WebSession(user_id=user.id, authorization_request_id=req_row.id)
+        db.add(ws)
+        await db.commit()
+        await db.refresh(ws)
+        request.session["uid"] = user.id
+        request.session["sid"] = ws.id
+        bp = settings.base_path.rstrip("/") or ""
+        return rc_ok({"redirect": f"{bp}/consent?state={body.state}"}, message="登录成功")
+
+    ws = WebSession(user_id=user.id)
     db.add(ws)
     await db.commit()
     await db.refresh(ws)
-
     request.session["uid"] = user.id
     request.session["sid"] = ws.id
-
-    bp = settings.base_path.rstrip("/") or ""
-    return rc_ok(
-        {
-            "redirect": f"{bp}/consent?state={body.state}",
-        },
-        message="登录成功",
-    )
+    return rc_ok({"redirect": "/"}, message="登录成功")

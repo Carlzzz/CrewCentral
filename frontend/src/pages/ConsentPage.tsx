@@ -71,19 +71,19 @@ export default function ConsentPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-900 text-slate-300">
-        加载中…
+      <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_70%_20%,#e0f2fe,transparent_40%),linear-gradient(to_bottom,#fff,#f0f9ff)]">
+        <p className="text-slate-400">加载中…</p>
       </div>
     );
   }
 
   if (!user) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-900 p-6 text-center">
-        <p className="text-red-400">{err || "未登录"}</p>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[radial-gradient(circle_at_70%_20%,#e0f2fe,transparent_40%),linear-gradient(to_bottom,#fff,#f0f9ff)] p-6 text-center">
+        <p className="text-red-500">{err || "未登录"}</p>
         <button
           type="button"
-          className="rounded-lg bg-white/10 px-4 py-2 text-white"
+          className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-slate-700 shadow-sm hover:bg-slate-50"
           onClick={() => navigate({ pathname: "/login", search: `?state=${encodeURIComponent(state)}` })}
         >
           去登录
@@ -93,48 +93,45 @@ export default function ConsentPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 p-4 flex items-center justify-center">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/10 p-8 shadow-2xl backdrop-blur-md">
-        <p className="text-center text-sm text-slate-300">
-          正在尝试登录 <span className="font-semibold text-white">{clientLabel}</span>…
+    <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_70%_20%,#e0f2fe,transparent_40%),linear-gradient(to_bottom,#fff,#f0f9ff)] p-4">
+      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+        <p className="text-center text-sm text-slate-500">
+          正在尝试登录 <span className="font-semibold text-slate-900">{clientLabel}</span>…
         </p>
         <div className="mt-6 flex flex-col items-center gap-3">
-          <div className="h-16 w-16 overflow-hidden rounded-full bg-slate-700">
+          <div className="h-16 w-16 overflow-hidden rounded-full bg-sky-100">
             {user.avatar_url ? (
               <img src={user.avatar_url} alt="" className="h-full w-full object-cover" />
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-2xl text-slate-300">
+              <div className="flex h-full w-full items-center justify-center text-2xl font-semibold text-sky-600">
                 {(user.display_name || user.email).slice(0, 1).toUpperCase()}
               </div>
             )}
           </div>
-          <p className="text-lg font-medium text-white">{user.display_name || user.email}</p>
-          <p className="text-sm text-slate-400">{user.email}</p>
+          <p className="text-lg font-medium text-slate-900">{user.display_name || user.email}</p>
+          <p className="text-sm text-slate-500">{user.email}</p>
         </div>
-        <p className="mt-6 text-center text-xs leading-relaxed text-amber-200/90">
-          请确保这是您本人在设备 <span className="font-semibold text-amber-100">{deviceLabel}</span>{" "}
+        <p className="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-center text-xs leading-relaxed text-amber-800">
+          请确保这是您本人在设备 <span className="font-semibold text-amber-900">{deviceLabel}</span>{" "}
           上的操作
         </p>
         <div className="mt-8 flex flex-col gap-3">
           <button
             type="button"
             onClick={onConfirm}
-            className="w-full rounded-xl bg-emerald-600 py-3 text-lg font-semibold text-white shadow-lg shadow-emerald-900/40 hover:bg-emerald-500"
+            className="w-full rounded-xl bg-gradient-to-r from-sky-600 to-blue-600 py-3 text-lg font-semibold text-white shadow-sm hover:from-sky-500 hover:to-blue-500"
           >
             确认授权
           </button>
           <button
             type="button"
             onClick={onCancel}
-            className="w-full rounded-xl border border-white/20 py-3 text-lg font-medium text-slate-200 hover:bg-white/5"
+            className="w-full rounded-xl border border-slate-200 py-3 text-lg font-medium text-slate-600 hover:bg-slate-50"
           >
             取消
           </button>
         </div>
-        {err && <p className="mt-4 text-center text-sm text-red-400">{err}</p>}
-        <p className="mt-4 text-center text-[10px] text-slate-500">
-          演示用：客户端/设备名可由 URL 参数传入（后续与后端绑定）。
-        </p>
+        {err && <p className="mt-4 text-center text-sm text-red-500">{err}</p>}
       </div>
     </div>
   );

@@ -20,6 +20,7 @@ export type AssetPublic = {
 
 export type DownloadContextData = {
   version: string;
+  published_at: string | null;
   slogan: string;
   logo_url: string;
   recommended_platform: Platform | null;

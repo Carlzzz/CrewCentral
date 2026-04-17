@@ -6,9 +6,9 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 ROLE_MENUS: dict[str, list[str]] = {
-    "super_admin": ["home", "download", "docs", "skills", "skills.assignments", "devices", "releases", "docs.manage", "users.manage"],
+    "super_admin": ["home", "download", "docs", "skills", "skills.assignments", "devices", "releases", "docs.manage", "users.manage", "usage"],
     "skill_admin": ["home", "download", "docs", "skills", "skills.assignments"],
-    "ops_admin": ["home", "download", "docs", "devices", "releases"],
+    "ops_admin": ["home", "download", "docs", "devices", "releases", "usage"],
     "docs_admin": ["home", "download", "docs", "docs.manage"],
     "viewer": ["home", "download", "docs"],
 }

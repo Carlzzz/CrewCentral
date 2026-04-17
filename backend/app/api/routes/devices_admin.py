@@ -158,10 +158,7 @@ async def list_devices(
         elif recent:
             st = "online"
         else:
-            if pr is None or is_stale_presence(pr.last_seen_at):
-                st = "anomaly"
-            else:
-                st = "offline"
+            st = "offline"
 
         u = users.get(d.owner_user_id)
         items.append(
@@ -234,6 +231,43 @@ async def block_device(
     await append_device_log(dbs, device_id=dev.id, message=f"管理员 {admin.id} 封禁设备")
     await dbs.commit()
     return rc_ok(message="已封禁")
+
+
+@router.post("/{device_id}/unblock")
+async def unblock_device(
+    device_id: str,
+    _: Request,
+    dbs: Annotated[AsyncSession, Depends(get_db_devices)],
+    admin: User = Depends(require_session_permission("devices")),
+) -> dict:
+    dev = await dbs.get(Device, device_id)
+    if dev is None:
+        return {"rc": 1, "message": "设备不存在", "data": None}
+    if dev.status != "blocked":
+        return {"rc": 2, "message": "设备未处于封禁状态", "data": None}
+
+    dev.status = "online"
+    dev.blocked_reason = None
+
+    from datetime import datetime, UTC
+    active_entries = (
+        await dbs.scalars(
+            select(BlocklistEntry).where(
+                BlocklistEntry.device_id == dev.id,
+                BlocklistEntry.revoked_at.is_(None),
+            )
+        )
+    ).all()
+    now = datetime.now(UTC)
+    for entry in active_entries:
+        entry.revoked_at = now
+
+    await record_admin_action(
+        dbs, actor_user_id=admin.id, device_id=dev.id, action="unblock", payload=None
+    )
+    await append_device_log(dbs, device_id=dev.id, message=f"管理员 {admin.id} 解封设备")
+    await dbs.commit()
+    return rc_ok(message="已解封")
 
 
 @router.post("/{device_id}/reboot")

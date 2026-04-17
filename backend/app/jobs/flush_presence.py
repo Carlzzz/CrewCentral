@@ -27,11 +27,10 @@ async def flush_presence_once() -> int:
         k = raw_key.decode() if isinstance(raw_key, bytes) else raw_key
         keys.append(k)
 
-    if not keys:
-        return 0
-
     updated = 0
     async with DevicesAsyncSessionLocal() as session:
+        flushed_device_ids: set[str] = set()
+
         for key in keys:
             device_id = key.split(":", 1)[-1]
             raw = await r.hgetall(key)
@@ -54,14 +53,37 @@ async def flush_presence_once() -> int:
                 geo = await resolve_geo_label(ip)
                 if geo:
                     dev.last_ip_geo = geo
-            dev.status = "online"
+
+            if not is_stale_presence(last_seen):
+                dev.status = "online"
+            else:
+                if dev.status == "online":
+                    dev.status = "offline"
 
             pr = await session.scalar(select(DevicePresence).where(DevicePresence.device_id == device_id))
             if pr is None:
                 session.add(DevicePresence(device_id=device_id, last_seen_at=last_seen))
             else:
                 pr.last_seen_at = last_seen
+            flushed_device_ids.add(device_id)
             updated += 1
+
+        # 清理：将没有活跃 Redis key 但 status 仍为 online 的设备标记为 offline
+        stale_devs = (
+            await session.scalars(
+                select(Device).where(Device.status == "online")
+            )
+        ).all()
+        pmap = {
+            r.device_id: r
+            for r in (await session.scalars(select(DevicePresence))).all()
+        }
+        for dev in stale_devs:
+            if dev.id in flushed_device_ids:
+                continue
+            pr = pmap.get(dev.id)
+            if is_stale_presence(pr.last_seen_at if pr else None):
+                dev.status = "offline"
 
         await session.commit()
 

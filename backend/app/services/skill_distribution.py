@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.devices_session import DevicesAsyncSessionLocal
@@ -18,6 +18,19 @@ async def _has_device_access(user_id: str, device_uuid: str, platform: str) -> b
         if row is None:
             return False
     return bool(platform)
+
+
+async def sync_skill_distribution_flags(db: AsyncSession, skill_ids: set[str]) -> None:
+    """Set Skill.distribution_enabled from whether any SkillAssignment is enabled (中控开启分发)."""
+    for sid in skill_ids:
+        n = await db.scalar(
+            select(func.count())
+            .select_from(SkillAssignment)
+            .where(SkillAssignment.skill_id == sid, SkillAssignment.enabled.is_(True))
+        )
+        skill = await db.get(Skill, sid)
+        if skill is not None:
+            skill.distribution_enabled = bool(n and n > 0)
 
 
 def _assignment_rank(target_type: str, priority: int) -> tuple[int, int]:
@@ -66,6 +79,8 @@ async def resolve_manifest(
 
     out: list[dict] = []
     for s in skills:
+        if not s.distribution_enabled:
+            continue
         a = candidates.get(s.id)
         if a is None:
             continue

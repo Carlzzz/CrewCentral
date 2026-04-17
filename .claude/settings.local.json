@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/n329c2/frontend/src/pages/admin/**)",
+      "Read(//c/Users/n329c2/frontend/src/pages/admin/**)",
+      "Read(//Users/n329c2/frontend/src/lib/**)",
+      "Read(//c/Users/n329c2/frontend/src/lib/**)",
+      "Read(//Users/n329c2/backend/app/api/routes/**)",
+      "Read(//c/Users/n329c2/backend/app/api/routes/**)",
+      "Bash(npx tsc *)",
+      "Read(//Users/unirwn/backend/app/auth/**)",
+      "Read(//c/Users/unirwn/backend/app/auth/**)",
+      "Read(//Users/unirwn/backend/app/models/**)",
+      "Read(//c/Users/unirwn/backend/app/models/**)",
+      "Read(//Users/o0eeqg/backend/**)",
+      "Read(//c/Users/o0eeqg/backend/**)",
+      "Read(//Users/o0eeqg/frontend/**)",
+      "Read(//c/Users/o0eeqg/frontend/**)",
+      "Read(//Users/o0eeqg/backend/app/core/**)",
+      "Read(//c/Users/o0eeqg/backend/app/core/**)"
+    ]
+  }
+}

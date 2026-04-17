@@ -59,7 +59,7 @@ export default function DocsReaderLayout() {
 
   return (
     <div className={theme === "dark" ? "dark" : ""}>
-      <div className="min-h-screen bg-slate-50 font-sans text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+      <div className="min-h-screen bg-gradient-to-b from-sky-50/70 via-white to-slate-50/90 font-sans text-slate-900 dark:from-slate-950 dark:via-slate-950 dark:to-slate-950 dark:text-slate-100">
         <TopNavBar />
         <DocsTopBar
           theme={theme}
@@ -69,7 +69,7 @@ export default function DocsReaderLayout() {
         {sidebarOpen ? (
           <button
             type="button"
-            className="fixed inset-0 z-30 bg-black/40 lg:hidden"
+            className="fixed inset-0 z-30 bg-slate-900/30 backdrop-blur-[2px] lg:hidden"
             aria-label="关闭目录"
             onClick={() => setSidebarOpen(false)}
           />
@@ -77,24 +77,32 @@ export default function DocsReaderLayout() {
         <div className="lg:flex lg:min-h-[calc(100vh-4rem)]">
           <aside
             className={
-              "fixed inset-y-0 left-0 z-40 w-[min(100vw,280px)] overflow-y-auto border-r border-slate-200 bg-white p-4 transition dark:border-slate-800 dark:bg-slate-900 lg:static lg:z-0 lg:block lg:w-72 lg:shrink-0 lg:translate-x-0 " +
+              "fixed inset-y-0 left-0 z-40 w-[min(100vw,288px)] overflow-y-auto border-r border-sky-100/80 bg-white/95 p-4 shadow-sm backdrop-blur-sm transition dark:border-slate-800 dark:bg-slate-900/95 lg:static lg:z-0 lg:block lg:w-72 lg:shrink-0 lg:translate-x-0 lg:shadow-none " +
               (sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0")
             }
           >
+            <p className="mb-3 px-1 text-[11px] font-medium uppercase tracking-wider text-sky-600/90 dark:text-sky-400/90">
+              目录
+            </p>
             {treeNav}
           </aside>
           <div className="flex min-w-0 flex-1 flex-col lg:flex-row">
-            <main className="min-w-0 flex-1 px-4 py-6 lg:px-8 lg:py-8">
+            <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
               <div className="mx-auto max-w-3xl">
                 <Outlet context={{ setToc } satisfies DocsOutletContext} />
               </div>
             </main>
-            <aside className="sticky top-24 hidden w-56 shrink-0 self-start px-2 py-6 lg:block">
-              <DocsToc items={toc} />
+            <aside className="sticky top-28 hidden w-56 shrink-0 self-start px-2 py-8 lg:block">
+              <div className="rounded-2xl border border-slate-200/80 bg-white/70 p-3 shadow-sm dark:border-slate-700/80 dark:bg-slate-900/50">
+                <p className="mb-2 px-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                  本页目录
+                </p>
+                <DocsToc items={toc} />
+              </div>
             </aside>
           </div>
         </div>
-        <div className="border-t border-slate-200 px-4 py-4 lg:hidden dark:border-slate-800">
+        <div className="border-t border-slate-200/80 bg-white/80 px-4 py-4 backdrop-blur-sm dark:border-slate-800 lg:hidden">
           <DocsToc items={toc} />
         </div>
       </div>

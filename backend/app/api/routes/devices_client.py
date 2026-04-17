@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user_id
 from app.core.forwarded_for import client_ip
+from app.core.redis import clear_kick_flag
 from app.db.devices_session import get_db_devices
 from app.schemas.device import DeviceHeartbeatBody, DeviceRegisterBody
 from app.schemas.rc import rc_ok
@@ -28,15 +29,21 @@ async def register_device(
     session: Annotated[AsyncSession, Depends(get_db_devices)],
 ) -> dict:
     existing = await get_device_for_user(
-        session, device_uuid=body.device_uuid, owner_user_id=user_id
+        session,
+        device_uuid=body.device_uuid,
+        owner_user_id=user_id,
+        mac_address=body.mac_address,
     )
     if existing is not None:
         try:
             await assert_device_allowed(session, existing)
         except DevicePolicyError as e:
-            return JSONResponse(
-                status_code=403, content={"rc": e.rc, "message": e.message, "data": None}
-            )
+            if e.rc == 40302:
+                await clear_kick_flag(existing.device_uuid)
+            else:
+                return JSONResponse(
+                    status_code=403, content={"rc": e.rc, "message": e.message, "data": None}
+                )
 
     ip = client_ip(request)
     await register_or_update_device(
@@ -65,7 +72,10 @@ async def heartbeat(
     session: Annotated[AsyncSession, Depends(get_db_devices)],
 ) -> dict:
     device = await get_device_for_user(
-        session, device_uuid=body.device_uuid, owner_user_id=user_id
+        session,
+        device_uuid=body.device_uuid,
+        owner_user_id=user_id,
+        mac_address=body.mac_address,
     )
     if device is None:
         return JSONResponse(

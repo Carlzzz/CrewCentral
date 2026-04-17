@@ -19,14 +19,32 @@ class DevicePolicyError(Exception):
 
 
 async def get_device_for_user(
-    session: AsyncSession, *, device_uuid: str, owner_user_id: str
+    session: AsyncSession,
+    *,
+    device_uuid: str,
+    owner_user_id: str,
+    mac_address: str | None = None,
 ) -> Device | None:
-    return await session.scalar(
+    dev = await session.scalar(
         select(Device).where(
             Device.device_uuid == device_uuid,
             Device.owner_user_id == owner_user_id,
         )
     )
+    if dev is not None:
+        return dev
+
+    if mac_address:
+        dev = await session.scalar(
+            select(Device).where(
+                Device.mac_address == mac_address,
+                Device.owner_user_id == owner_user_id,
+            ).order_by(Device.updated_at.desc()).limit(1)
+        )
+        if dev is not None:
+            dev.device_uuid = device_uuid
+            await session.flush()
+    return dev
 
 
 async def assert_device_allowed(session: AsyncSession, device: Device) -> None:

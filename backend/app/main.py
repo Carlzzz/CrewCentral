@@ -26,6 +26,7 @@ from app.api.routes import (
     skills_admin,
     skills_client,
     skills_hub_public,
+    usage_admin,
     users_admin,
     users_client,
 )
@@ -102,6 +103,7 @@ def create_app() -> FastAPI:
     root.include_router(account.router, prefix="/api/v1")
     root.include_router(docs_public.router, prefix="/api/v1")
     root.include_router(docs_admin.router, prefix="/api/v1")
+    root.include_router(usage_admin.router, prefix="/api/v1")
 
     # Browser /auth/* (per constitution)
     root.include_router(auth_routes.router, prefix="/auth")

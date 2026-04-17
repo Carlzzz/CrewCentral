@@ -14,6 +14,7 @@ from app.models.skill_version import SkillVersion
 from app.models.user import User
 from app.schemas.rc import rc_err, rc_ok
 from app.schemas.skills import AssignmentUpdateBody, ToggleDispatchBody
+from app.services.skill_distribution import sync_skill_distribution_flags
 from app.services.skill_registry import parse_upload_metadata, upsert_skill_version
 
 router = APIRouter(prefix="/admin/skills", tags=["skills-admin"])
@@ -120,6 +121,7 @@ async def list_skills(
                 "icon_url": row.icon_url,
                 "status": row.status,
                 "latest_version": latest.version if latest else None,
+                "distribution_enabled": row.distribution_enabled,
             }
         )
     return rc_ok({"items": data, "total": total, "page": page, "page_size": page_size})
@@ -202,6 +204,8 @@ async def toggle_dispatch(
             detail_json={"enabled": body.enabled, "scope": body.scope, "group_id": body.group_id},
         )
     )
+    await db.flush()
+    await sync_skill_distribution_flags(db, {skill_id})
     await db.commit()
     return rc_ok(message="分发状态已更新")
 
@@ -254,5 +258,7 @@ async def update_assignments(
             )
         )
 
+    await db.flush()
+    await sync_skill_distribution_flags(db, {item.skill_id for item in body.skills})
     await db.commit()
     return rc_ok(message="绑定配置已保存")

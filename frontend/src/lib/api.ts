@@ -8,9 +8,24 @@ export type RcResponse<T = unknown> = {
 
 export const apiPrefix = () => `${import.meta.env.BASE_URL}api/v1`;
 
+function normalizeResponse<T>(raw: Record<string, unknown>, status: number): RcResponse<T> {
+  if (typeof raw.rc === "number") return raw as unknown as RcResponse<T>;
+  if (raw.detail) {
+    const detail = raw.detail;
+    if (typeof detail === "string") return { rc: 1, message: detail };
+    if (Array.isArray(detail)) {
+      const msg = detail.map((d: { msg?: string; loc?: string[] }) =>
+        d.msg ? `${(d.loc ?? []).slice(-1).join(".")}: ${d.msg}` : JSON.stringify(d),
+      ).join("; ");
+      return { rc: 1, message: msg };
+    }
+  }
+  return { rc: status >= 400 ? 1 : 0, message: status >= 400 ? `请求失败（HTTP ${status}）` : "" };
+}
+
 export async function getJson<T>(path: string): Promise<RcResponse<T>> {
   const res = await fetch(`${apiPrefix()}${path}`, { credentials: "include" });
-  return (await res.json()) as RcResponse<T>;
+  return normalizeResponse<T>(await res.json(), res.status);
 }
 
 export async function postJson<T>(
@@ -25,7 +40,7 @@ export async function postJson<T>(
     body: JSON.stringify(body),
     ...init,
   });
-  return (await res.json()) as RcResponse<T>;
+  return normalizeResponse<T>(await res.json(), res.status);
 }
 
 export async function patchJson<T>(
@@ -40,7 +55,7 @@ export async function patchJson<T>(
     body: JSON.stringify(body),
     ...init,
   });
-  return (await res.json()) as RcResponse<T>;
+  return normalizeResponse<T>(await res.json(), res.status);
 }
 
 export async function deleteJson<T>(path: string, init?: RequestInit): Promise<RcResponse<T>> {
@@ -49,7 +64,7 @@ export async function deleteJson<T>(path: string, init?: RequestInit): Promise<R
     credentials: "include",
     ...init,
   });
-  return (await res.json()) as RcResponse<T>;
+  return normalizeResponse<T>(await res.json(), res.status);
 }
 
 export async function fetchConsentContext(state: string): Promise<RcResponse<{

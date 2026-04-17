@@ -1,4 +1,11 @@
-const CATEGORIES = ["全部", "自动化", "采集", "社交", "自定义"] as const;
+const CATEGORIES = ["全部", "automation", "scraper", "social", "custom"] as const;
+const CATEGORY_LABELS: Record<string, string> = {
+  "全部": "全部",
+  "automation": "自动化",
+  "scraper": "采集",
+  "social": "社交",
+  "custom": "自定义",
+};
 
 type Props = {
   active: string;
@@ -21,7 +28,7 @@ export default function SkillCategoryNav({ active, onChange }: Props) {
             }`}
             onClick={() => onChange(c)}
           >
-            {c}
+            {CATEGORY_LABELS[c]}
           </button>
         ))}
       </div>

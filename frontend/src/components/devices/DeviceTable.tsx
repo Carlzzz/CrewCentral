@@ -5,6 +5,7 @@ import {
   fetchDeviceLogs,
   kickDevice,
   rebootDevice,
+  unblockDevice,
 } from "../../lib/devices-api";
 import HardwareModal from "./HardwareModal";
 import StatusPing from "./StatusPing";
@@ -41,8 +42,15 @@ export default function DeviceTable({ items, loading, page, pages, onPageChange,
   }
 
   async function onBlock(id: string) {
-    if (!confirm("确认封禁该设备？")) return;
+    if (!confirm("确认封禁该设备？封禁后设备将无法登录或发送心跳。")) return;
     const res = await blockDevice(id);
+    alert(res.rc === 0 ? res.message : res.message || "失败");
+    if (res.rc === 0) onMutate?.();
+  }
+
+  async function onUnblock(id: string) {
+    if (!confirm("确认解封该设备？解封后设备可重新登录。")) return;
+    const res = await unblockDevice(id);
     alert(res.rc === 0 ? res.message : res.message || "失败");
     if (res.rc === 0) onMutate?.();
   }
@@ -158,13 +166,25 @@ export default function DeviceTable({ items, loading, page, pages, onPageChange,
                       >
                         断开
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => onBlock(row.id)}
-                        className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 transition-colors"
-                      >
-                        封禁
-                      </button>
+                      {mapStatus(row.status) === "blocked" ? (
+                        <button
+                          type="button"
+                          onClick={() => onUnblock(row.id)}
+                          className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800 transition-colors"
+                          title="解除封禁，允许设备重新登录"
+                        >
+                          解封
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => onBlock(row.id)}
+                          className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 transition-colors"
+                          title="封禁设备，禁止登录和心跳"
+                        >
+                          封禁
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => onLogs(row.id)}

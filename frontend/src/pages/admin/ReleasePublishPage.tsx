@@ -13,6 +13,25 @@ import {
 import { uploadReleasePackage } from "../../lib/user-api";
 
 const PLATFORMS: Platform[] = ["windows", "macos", "linux"];
+const DRAFT_KEY = "release-publish-form-draft-v1";
+
+type DraftForm = {
+  version: string;
+  releaseNotes: string;
+  updatePolicy: "optional" | "forced";
+  enabled: Record<Platform, boolean>;
+  urls: Record<Platform, string>;
+  names: Record<Platform, string>;
+  md5: Record<Platform, string>;
+  sha: Record<Platform, string>;
+  changelogLines: ChangelogEntry[];
+};
+
+function semverTuple(v: string): [number, number, number] {
+  const m = v.trim().match(/^(\d+)(?:\.(\d+))?(?:\.(\d+))?/);
+  if (!m) return [0, 0, 0];
+  return [Number(m[1] || 0), Number(m[2] || 0), Number(m[3] || 0)];
+}
 
 export default function ReleasePublishPage() {
   const navigate = useNavigate();
@@ -52,6 +71,16 @@ export default function ReleasePublishPage() {
   const [changelogLines, setChangelogLines] = useState<ChangelogEntry[]>([
     { type: "new", text: "" },
   ]);
+  const latestPublishedId = items
+    .filter((x) => x.status === "published")
+    .sort((a, b) => {
+      const ta = semverTuple(a.version);
+      const tb = semverTuple(b.version);
+      if (ta[0] !== tb[0]) return tb[0] - ta[0];
+      if (ta[1] !== tb[1]) return tb[1] - ta[1];
+      if (ta[2] !== tb[2]) return tb[2] - ta[2];
+      return 0;
+    })[0]?.id;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -69,8 +98,44 @@ export default function ReleasePublishPage() {
       }
       setReady(true);
       await load();
+      try {
+        const raw = localStorage.getItem(DRAFT_KEY);
+        if (raw) {
+          const d = JSON.parse(raw) as DraftForm;
+          setVersion(d.version ?? "1.0.0");
+          setReleaseNotes(d.releaseNotes ?? "");
+          setUpdatePolicy(d.updatePolicy === "forced" ? "forced" : "optional");
+          if (d.enabled) setEnabled(d.enabled);
+          if (d.urls) setUrls(d.urls);
+          if (d.names) setNames(d.names);
+          if (d.md5) setMd5(d.md5);
+          if (d.sha) setSha(d.sha);
+          if (Array.isArray(d.changelogLines) && d.changelogLines.length > 0) {
+            setChangelogLines(d.changelogLines);
+          }
+          setMessage("已恢复上次未提交的发布表单草稿。");
+        }
+      } catch {
+        // ignore broken draft payload
+      }
     })();
   }, [load, navigate]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const payload: DraftForm = {
+      version,
+      releaseNotes,
+      updatePolicy,
+      enabled,
+      urls,
+      names,
+      md5,
+      sha,
+      changelogLines,
+    };
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
+  }, [ready, version, releaseNotes, updatePolicy, enabled, urls, names, md5, sha, changelogLines]);
 
   function togglePlatform(p: Platform) {
     setEnabled((prev) => ({ ...prev, [p]: !prev[p] }));
@@ -90,7 +155,7 @@ export default function ReleasePublishPage() {
     setNames((o) => ({ ...o, [p]: res.data!.file_name || file.name }));
     setMd5((o) => ({ ...o, [p]: res.data!.md5 }));
     setSha((o) => ({ ...o, [p]: res.data!.sha256 }));
-    setMessage("安装包已上传，已自动填充下载链接与校验值。");
+    setMessage("安装包已上传并填充到表单；请点击“创建草稿”或“创建并发布”后才会持久化并出现在下载页。");
   }
 
   async function onCreateDraft() {
@@ -117,7 +182,40 @@ export default function ReleasePublishPage() {
     };
     const res = await createAdminRelease(body);
     setMessage(res.message || (res.rc === 0 ? "已创建草稿" : "创建失败"));
-    if (res.rc === 0) await load();
+    if (res.rc === 0) {
+      localStorage.removeItem(DRAFT_KEY);
+      await load();
+    }
+  }
+
+  async function onCreateAndPublish() {
+    setMessage(null);
+    const enabledList = PLATFORMS.filter((p) => enabled[p]);
+    const assets = enabledList.map((p) => ({
+      platform: p,
+      download_url: urls[p].trim(),
+      file_name: names[p].trim(),
+      md5: md5[p].trim(),
+      sha256: sha[p].trim(),
+    }));
+    const changelog = changelogLines
+      .map((c) => ({ type: c.type, text: c.text.trim() }))
+      .filter((c) => c.text.length > 0);
+    const body = {
+      version: version.trim(),
+      release_notes: releaseNotes,
+      changelog_entries: changelog.length ? changelog : null,
+      update_policy: updatePolicy,
+      status: "published",
+      enabled_platforms: enabledList,
+      assets,
+    };
+    const res = await createAdminRelease(body);
+    setMessage(res.message || (res.rc === 0 ? "已创建并发布" : "创建失败"));
+    if (res.rc === 0) {
+      localStorage.removeItem(DRAFT_KEY);
+      await load();
+    }
   }
 
   async function onPublish(id: string) {
@@ -142,6 +240,11 @@ export default function ReleasePublishPage() {
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">客户端发布</h1>
           <p className="text-sm text-slate-500">管理版本、下载链接与校验信息（服务端鉴权）</p>
+        </div>
+
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          说明：上传安装包仅是把文件传到服务器并回填表单，不会自动生成发布记录。
+          需要点击“创建草稿”或“创建并发布”，下载页只显示“已发布”版本。
         </div>
 
         {message ? (
@@ -304,13 +407,20 @@ export default function ReleasePublishPage() {
             ))}
           </div>
 
-          <div className="mt-8 flex justify-end">
+          <div className="mt-8 flex flex-wrap justify-end gap-2">
             <button
               type="button"
-              className="rounded-lg bg-sky-600 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-sky-500 hover:shadow"
+              className="rounded-lg border border-slate-200 bg-white px-6 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
               onClick={() => void onCreateDraft()}
             >
               创建草稿
+            </button>
+            <button
+              type="button"
+              className="rounded-lg bg-emerald-600 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-500 hover:shadow"
+              onClick={() => void onCreateAndPublish()}
+            >
+              创建并发布
             </button>
           </div>
         </div>
@@ -327,6 +437,7 @@ export default function ReleasePublishPage() {
                     <th className="px-4 py-3 font-medium">版本</th>
                     <th className="px-4 py-3 font-medium">状态</th>
                     <th className="px-4 py-3 font-medium">策略</th>
+                    <th className="px-4 py-3 font-medium">发布时间</th>
                     <th className="px-4 py-3 font-medium">操作</th>
                   </tr>
                 </thead>
@@ -342,8 +453,16 @@ export default function ReleasePublishPage() {
                         }`}>
                           {it.status === 'published' ? '已发布' : it.status === 'archived' ? '已归档' : '草稿'}
                         </span>
+                        {it.id === latestPublishedId ? (
+                          <span className="ml-2 inline-flex rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-700">
+                            最新已发布
+                          </span>
+                        ) : null}
                       </td>
                       <td className="px-4 py-3">{it.update_policy === 'forced' ? '强制' : '可选'}</td>
+                      <td className="px-4 py-3 text-xs text-slate-500">
+                        {it.published_at ? new Date(it.published_at).toLocaleString() : "-"}
+                      </td>
                       <td className="px-4 py-3 space-x-2">
                         {it.status === "draft" ? (
                           <button
@@ -368,7 +487,7 @@ export default function ReleasePublishPage() {
                   ))}
                   {items.length === 0 && (
                     <tr>
-                      <td colSpan={4} className="px-4 py-8 text-center text-slate-500">
+                      <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
                         暂无发布记录
                       </td>
                     </tr>

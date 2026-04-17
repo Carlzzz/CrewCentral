@@ -30,13 +30,14 @@ export default function SkillConfigEditor({ value, onChange }: Props) {
 
   return (
     <div className="space-y-2">
-      <label className="text-xs text-slate-400">技能参数配置（JSON）</label>
+      <label className="text-sm font-medium text-slate-700">技能参数配置（JSON）</label>
       <textarea
         value={text}
         onChange={(e) => validateAndEmit(e.target.value)}
-        className="min-h-[220px] w-full rounded-lg border border-white/10 bg-slate-950 p-3 font-mono text-xs text-emerald-200"
+        className="min-h-[220px] w-full rounded-lg border border-slate-200 bg-slate-50 p-4 font-mono text-sm leading-relaxed text-slate-800 outline-none focus:border-sky-500 focus:bg-white focus:ring-1 focus:ring-sky-500 transition-all custom-scrollbar shadow-inner"
+        placeholder="{}"
       />
-      {err && <p className="text-xs text-rose-300">{err}</p>}
+      {err && <p className="text-xs text-rose-500">{err}</p>}
     </div>
   );
 }

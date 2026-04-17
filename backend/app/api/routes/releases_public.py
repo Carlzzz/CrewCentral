@@ -6,7 +6,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -34,6 +34,7 @@ async def download_context(
         return rc_ok(
             {
                 "version": "",
+                "published_at": None,
                 "slogan": settings.client_download_default_slogan,
                 "logo_url": settings.client_download_default_logo_url or "",
                 "recommended_platform": None,
@@ -66,6 +67,7 @@ async def download_context(
     return rc_ok(
         {
             "version": latest.version,
+            "published_at": latest.published_at.isoformat() if latest.published_at else None,
             "slogan": slogan,
             "logo_url": logo,
             "recommended_platform": recommended,
@@ -78,10 +80,18 @@ async def download_context(
 
 
 @router.get("/files/{filename}")
-async def public_release_file(filename: str) -> FileResponse:
+async def public_release_file(
+    filename: str,
+    download_name: str | None = Query(default=None),
+) -> FileResponse:
     if "/" in filename or "\\" in filename or ".." in filename:
         raise HTTPException(status_code=400, detail="invalid filename")
     target = (UPLOAD_DIR / filename).resolve()
     if not target.exists() or not target.is_file():
         raise HTTPException(status_code=404, detail="file not found")
-    return FileResponse(path=target, content_disposition_type="attachment")
+    safe_download_name = Path(download_name).name if download_name else filename
+    return FileResponse(
+        path=target,
+        filename=safe_download_name,
+        content_disposition_type="attachment",
+    )

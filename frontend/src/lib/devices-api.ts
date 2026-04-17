@@ -53,6 +53,10 @@ export async function blockDevice(deviceId: string): Promise<RcResponse<unknown>
   return postJson(`/admin/devices/${encodeURIComponent(deviceId)}/block`, {});
 }
 
+export async function unblockDevice(deviceId: string): Promise<RcResponse<unknown>> {
+  return postJson(`/admin/devices/${encodeURIComponent(deviceId)}/unblock`, {});
+}
+
 export async function rebootDevice(deviceId: string): Promise<RcResponse<{ command_id: string }>> {
   return postJson(`/admin/devices/${encodeURIComponent(deviceId)}/reboot`, {});
 }

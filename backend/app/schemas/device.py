@@ -12,4 +12,5 @@ class DeviceRegisterBody(BaseModel):
 
 class DeviceHeartbeatBody(BaseModel):
     device_uuid: str = Field(..., min_length=1)
+    mac_address: str | None = Field(default=None, min_length=1)
     current_skill_slug: str | None = None

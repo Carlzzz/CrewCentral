@@ -51,15 +51,15 @@ function SortableRow({
       ref={setNodeRef}
       style={style}
       className={
-        "flex items-center gap-2 rounded-lg border px-2 py-1.5 text-left text-sm " +
+        "flex items-center gap-2 rounded-lg border px-2 py-1.5 text-left text-sm transition-colors " +
         (selected
-          ? "border-sky-500 bg-sky-950/50 text-sky-100"
-          : "border-white/10 bg-slate-900/40 text-slate-200 hover:bg-white/5")
+          ? "border-sky-200 bg-sky-50 text-sky-900 font-medium"
+          : "border-slate-100 bg-white text-slate-700 hover:bg-slate-50")
       }
     >
       <button
         type="button"
-        className="cursor-grab touch-none text-slate-500 hover:text-slate-300"
+        className="cursor-grab touch-none text-slate-300 hover:text-slate-500"
         aria-label="拖拽排序"
         {...attributes}
         {...listeners}
@@ -274,20 +274,20 @@ export default function DocsEditorPage() {
         </div>
 
         {message ? (
-          <div className="rounded-lg border border-white/10 bg-slate-900/50 px-3 py-2 text-sm text-slate-200">
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             {message}
           </div>
         ) : null}
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(240px,320px)_1fr]">
-          <div className="space-y-3 rounded-xl border border-white/10 bg-slate-900/40 p-4">
+          <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex flex-wrap gap-2">
-              <label className="text-xs text-slate-400">
+              <label className="text-xs text-slate-500 font-medium">
                 新建分区
                 <select
                   value={navSection}
                   onChange={(e) => setNavSection(e.target.value as NavSection)}
-                  className="ml-2 rounded border border-white/10 bg-slate-950 px-2 py-1 text-sm text-slate-100"
+                  className="ml-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-sm text-slate-700 outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all"
                 >
                   {SECTIONS.map((s) => (
                     <option key={s} value={s}>
@@ -299,19 +299,19 @@ export default function DocsEditorPage() {
               <button
                 type="button"
                 onClick={() => void onCreate()}
-                className="rounded-lg bg-sky-600 px-3 py-1.5 text-sm text-white hover:bg-sky-500"
+                className="rounded-md bg-slate-800 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-slate-700 transition-colors"
               >
-                新建页面
+                + 新建页面
               </button>
             </div>
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-              <div className="max-h-[60vh] space-y-4 overflow-y-auto pr-1">
+              <div className="max-h-[60vh] space-y-5 overflow-y-auto pr-2 custom-scrollbar">
                 {SECTIONS.map((sec) => {
                   const roots = items.filter((p) => p.nav_section === sec && p.parent_id == null);
                   if (roots.length === 0) return null;
                   return (
                     <div key={sec}>
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <p className="mb-2 text-xs font-semibold tracking-wider text-slate-400">
                         {NAV_SECTION_LABELS[sec]}
                       </p>
                       <SiblingTree
@@ -329,32 +329,32 @@ export default function DocsEditorPage() {
             </DndContext>
           </div>
 
-          <div className="flex min-h-[70vh] flex-col gap-4 rounded-xl border border-white/10 bg-slate-900/40 p-4">
+          <div className="flex min-h-[70vh] flex-col gap-5 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             {selectedId ? (
               <>
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  <label className="block text-sm text-slate-300">
-                    slug
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <label className="block text-sm font-medium text-slate-700">
+                    <span className="mb-1 block">路径 Slug</span>
                     <input
                       value={slug}
                       onChange={(e) => setSlug(e.target.value)}
-                      className="mt-1 w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-slate-100"
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 outline-none focus:border-sky-500 focus:bg-white focus:ring-1 focus:ring-sky-500 transition-all"
                     />
                   </label>
-                  <label className="block text-sm text-slate-300">
-                    标题
+                  <label className="block text-sm font-medium text-slate-700">
+                    <span className="mb-1 block">标题 Title</span>
                     <input
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
-                      className="mt-1 w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-slate-100"
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 outline-none focus:border-sky-500 focus:bg-white focus:ring-1 focus:ring-sky-500 transition-all"
                     />
                   </label>
-                  <label className="block text-sm text-slate-300">
-                    分区
+                  <label className="block text-sm font-medium text-slate-700">
+                    <span className="mb-1 block">所属分区 Section</span>
                     <select
                       value={navSection}
                       onChange={(e) => setNavSection(e.target.value as NavSection)}
-                      className="mt-1 w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-slate-100"
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 outline-none focus:border-sky-500 focus:bg-white focus:ring-1 focus:ring-sky-500 transition-all"
                     >
                       {SECTIONS.map((s) => (
                         <option key={s} value={s}>
@@ -363,14 +363,14 @@ export default function DocsEditorPage() {
                       ))}
                     </select>
                   </label>
-                  <label className="block text-sm text-slate-300">
-                    父节点（可选）
+                  <label className="block text-sm font-medium text-slate-700">
+                    <span className="mb-1 block">父节点 Parent (可选)</span>
                     <select
                       value={parentId}
                       onChange={(e) => setParentId(e.target.value)}
-                      className="mt-1 w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-slate-100"
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 outline-none focus:border-sky-500 focus:bg-white focus:ring-1 focus:ring-sky-500 transition-all"
                     >
-                      <option value="">无</option>
+                      <option value="">无 (作为根节点)</option>
                       {parentOptions.map((p) => (
                         <option key={p.id} value={p.id}>
                           {p.title} ({p.slug})
@@ -378,58 +378,71 @@ export default function DocsEditorPage() {
                       ))}
                     </select>
                   </label>
-                  <label className="block text-sm text-slate-300 md:col-span-2">
-                    状态
+                  <label className="block text-sm font-medium text-slate-700 md:col-span-2">
+                    <span className="mb-1 block">发布状态 Status</span>
                     <select
                       value={status}
                       onChange={(e) => setStatus(e.target.value as "draft" | "published")}
-                      className="mt-1 w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-slate-100"
+                      className="w-full max-w-sm rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-900 outline-none focus:border-sky-500 focus:bg-white focus:ring-1 focus:ring-sky-500 transition-all"
                     >
-                      <option value="draft">草稿</option>
-                      <option value="published">已发布</option>
+                      <option value="draft">草稿 Draft (仅管理员可见)</option>
+                      <option value="published">已发布 Published (所有人可见)</option>
                     </select>
                   </label>
                 </div>
-                <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-2">
-                  <label className="flex min-h-[280px] flex-col text-sm text-slate-300">
-                    Markdown
+                
+                <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 lg:grid-cols-2">
+                  <label className="flex min-h-[360px] flex-col text-sm font-medium text-slate-700">
+                    <span className="mb-1.5 flex items-center justify-between">
+                      <span>Markdown 正文</span>
+                    </span>
                     <textarea
                       value={bodyMd}
                       onChange={(e) => setBodyMd(e.target.value)}
-                      className="mt-1 min-h-[240px] flex-1 rounded-lg border border-white/10 bg-slate-950 px-3 py-2 font-mono text-sm text-slate-100"
+                      className="flex-1 rounded-lg border border-slate-200 bg-slate-50 p-4 font-mono text-sm leading-relaxed text-slate-800 outline-none focus:border-sky-500 focus:bg-white focus:ring-1 focus:ring-sky-500 transition-all custom-scrollbar"
+                      placeholder="在这里输入 Markdown..."
                     />
                   </label>
-                  <div className="min-h-[280px] overflow-y-auto rounded-lg border border-white/10 bg-slate-950/50 p-4">
-                    <p className="mb-2 text-xs text-slate-500">预览（消毒管线与读者一致）</p>
-                    <DocsMarkdown markdown={bodyMd} />
+                  <div className="flex min-h-[360px] flex-col">
+                    <span className="mb-1.5 block text-sm font-medium text-slate-700">预览 Preview</span>
+                    <div className="flex-1 overflow-y-auto rounded-lg border border-slate-200 bg-white p-6 shadow-inner custom-scrollbar docs-content">
+                      <DocsMarkdown markdown={bodyMd} />
+                    </div>
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-2">
+
+                <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-5">
                   <button
                     type="button"
                     onClick={() => void onSave()}
-                    className="rounded-lg bg-slate-700 px-4 py-2 text-sm text-white hover:bg-slate-600"
+                    className="rounded-lg bg-sky-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-sky-500 hover:shadow transition-all"
                   >
-                    保存
+                    保存页面
                   </button>
                   <button
                     type="button"
                     onClick={() => void onPublish()}
-                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm text-white hover:bg-emerald-500"
+                    className="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-emerald-500 hover:shadow transition-all"
                   >
-                    发布
+                    保存并发布
                   </button>
+                  <div className="flex-1"></div>
                   <button
                     type="button"
                     onClick={() => void onDelete()}
-                    className="rounded-lg border border-red-500/40 px-4 py-2 text-sm text-red-300 hover:bg-red-950/40"
+                    className="rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-100 transition-colors"
                   >
-                    删除
+                    删除此页
                   </button>
                 </div>
               </>
             ) : (
-              <p className="text-slate-500">请选择左侧文档，或新建页面。</p>
+              <div className="flex flex-1 flex-col items-center justify-center text-slate-400">
+                <svg className="mb-3 h-12 w-12 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <p>请在左侧选择一个文档进行编辑，或点击“新建页面”</p>
+              </div>
             )}
           </div>
         </div>

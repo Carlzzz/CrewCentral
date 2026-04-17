@@ -19,6 +19,7 @@ import IndexRedirect from "./pages/IndexRedirect";
 import HomePage from "./pages/HomePage";
 import ProfilePage from "./pages/ProfilePage";
 import ChangePasswordPage from "./pages/ChangePasswordPage";
+import UsageDashboardPage from "./pages/admin/UsageDashboardPage";
 import UserManagePage from "./pages/admin/UserManagePage";
 
 export default function App() {
@@ -47,6 +48,7 @@ export default function App() {
         <Route path="releases" element={<ReleasePublishPage />} />
         <Route path="docs" element={<DocsEditorPage />} />
         <Route path="users" element={<UserManagePage />} />
+        <Route path="usage" element={<UsageDashboardPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>

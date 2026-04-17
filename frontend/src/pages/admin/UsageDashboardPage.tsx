@@ -1,0 +1,674 @@
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  fetchUsageOverview,
+  fetchUsageTrend,
+  fetchUsageRecords,
+  type UsageOverview,
+  type DayBucket,
+  type UsageRecord,
+} from "../../lib/usage-api";
+
+function fmtNum(n: number): string {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
+  if (n >= 1_000) return (n / 1_000).toFixed(1) + "K";
+  return String(n);
+}
+
+function daysAgo8(n: number): string {
+  const d = new Date(Date.now() - n * 864e5);
+  const pad = (v: number) => String(v).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/* ---------- BarChart ---------- */
+function BarChart({
+  data,
+  labelKey,
+  valueKeys,
+  valueLabels,
+  colors,
+}: {
+  data: Record<string, unknown>[];
+  labelKey: string;
+  valueKeys: string[];
+  valueLabels?: string[];
+  colors: string[];
+}) {
+  const maxVal = useMemo(() => {
+    let m = 0;
+    for (const row of data) {
+      let sum = 0;
+      for (const k of valueKeys) sum += (row[k] as number) || 0;
+      if (sum > m) m = sum;
+    }
+    return m || 1;
+  }, [data, valueKeys]);
+
+  if (data.length === 0) {
+    return <p className="py-6 text-center text-xs text-slate-400">暂无数据</p>;
+  }
+
+  return (
+    <div className="space-y-2">
+      {valueLabels && valueLabels.length > 0 && (
+        <div className="flex gap-3 px-1 pb-0.5">
+          {valueLabels.map((lbl, ki) => (
+            <span key={ki} className="flex items-center gap-1 text-[10px] text-slate-500">
+              <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: colors[ki] }} />
+              {lbl}
+            </span>
+          ))}
+        </div>
+      )}
+      {data.map((row, i) => {
+        const label = String(row[labelKey] ?? "");
+        const total = valueKeys.reduce((s, k) => s + ((row[k] as number) || 0), 0);
+        const calls = (row as Record<string, unknown>).calls as number | undefined;
+        return (
+          <div key={i} className="group flex items-center gap-2 text-[11px]">
+            <span className="w-20 shrink-0 truncate text-right text-slate-500" title={label}>
+              {label}
+            </span>
+            <div className="relative flex h-5 flex-1 overflow-hidden rounded-full bg-slate-100/90">
+              {valueKeys.map((k, ki) => {
+                const val = (row[k] as number) || 0;
+                const pct = (val / maxVal) * 100;
+                return (
+                  <div
+                    key={k}
+                    className="h-full transition-all duration-300"
+                    style={{ width: `${pct}%`, backgroundColor: colors[ki] }}
+                    title={`${valueLabels?.[ki] ?? k}: ${fmtNum(val)}`}
+                  />
+                );
+              })}
+            </div>
+            <span className="w-14 shrink-0 text-right tabular-nums text-slate-600">
+              {fmtNum(total)}
+            </span>
+            {calls !== undefined && (
+              <span className="w-10 shrink-0 text-right tabular-nums text-slate-400 text-[10px]">
+                {fmtNum(calls)}次
+              </span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ---------- TrendChart（带放大的双轴图表） ---------- */
+function TrendChart({ data, enlarged = false }: { data: DayBucket[]; enlarged?: boolean }) {
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+
+  if (data.length === 0) {
+    return (
+      <div className={`flex flex-col items-center justify-center rounded-xl bg-gradient-to-br from-sky-50/80 to-violet-50/50 text-center ${enlarged ? "h-[320px]" : "h-[160px]"}`}>
+        <p className="text-xs text-slate-500">这段范围内暂无按日打点</p>
+        <p className="mt-0.5 px-4 text-[10px] text-slate-400">请确认 ES 中 start_time 为 date 且数据在所选日期内</p>
+      </div>
+    );
+  }
+
+  const W = enlarged ? 720 : 480;
+  const H = enlarged ? 320 : 160;
+  const padL = enlarged ? 56 : 44;
+  const padR = enlarged ? 52 : 40;
+  const padT = enlarged ? 28 : 20;
+  const padB = enlarged ? 36 : 24;
+  const iw = W - padL - padR;
+  const ih = H - padT - padB;
+
+  const totals = data.map((d) => d.input_tokens + d.output_tokens);
+  const maxToken = Math.max(...totals, 1);
+  const maxCalls = Math.max(...data.map((d) => d.calls), 1);
+
+  // Y-axis tick values
+  const tokenTicks = [0, 0.25, 0.5, 0.75, 1].map((r) => Math.round(maxToken * r));
+  const callTicks = [0, 0.25, 0.5, 0.75, 1].map((r) => Math.round(maxCalls * r));
+
+  const n = data.length;
+  const xAt = (i: number) => padL + (n <= 1 ? iw / 2 : (i / (n - 1)) * iw);
+
+  const tokenPoints = data.map((_, i) => {
+    const x = xAt(i);
+    const y = padT + ih - (totals[i] / maxToken) * ih;
+    return `${x},${y}`;
+  });
+
+  const callPoints = data.map((d, i) => {
+    const x = xAt(i);
+    const y = padT + ih - (d.calls / maxCalls) * ih;
+    return `${x},${y}`;
+  });
+
+  const areaD = `M ${padL},${padT + ih} L ${tokenPoints.join(" L ")} L ${xAt(n - 1)},${padT + ih} Z`;
+
+  const labelEvery = enlarged ? (n <= 15 ? 1 : Math.ceil(n / 12)) : (n <= 8 ? 1 : Math.ceil(n / 6));
+  const fontSize = enlarged ? "11px" : "9px";
+  const axisFont = enlarged ? "10px" : "8px";
+
+  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!svgRef.current) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    const mouseX = ((e.clientX - rect.left) / rect.width) * W;
+    let closest = 0;
+    let minDist = Infinity;
+    for (let i = 0; i < n; i++) {
+      const dist = Math.abs(xAt(i) - mouseX);
+      if (dist < minDist) { minDist = dist; closest = i; }
+    }
+    setHoverIdx(closest);
+  };
+
+  return (
+    <svg
+      ref={svgRef}
+      viewBox={`0 0 ${W} ${H}`}
+      className={`w-full max-w-full ${enlarged ? "h-[320px]" : "h-[160px]"}`}
+      preserveAspectRatio="xMidYMid meet"
+      onMouseMove={handleMouseMove}
+      onMouseLeave={() => setHoverIdx(null)}
+    >
+      <defs>
+        <linearGradient id={`usageArea${enlarged ? "L" : "S"}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.30" />
+          <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.02" />
+        </linearGradient>
+      </defs>
+
+      {/* grid lines */}
+      {tokenTicks.map((_, ti) => {
+        const y = padT + ih - (ti / 4) * ih;
+        return <line key={`g${ti}`} x1={padL} y1={y} x2={padL + iw} y2={y} stroke="#e2e8f0" strokeWidth="0.5" strokeDasharray="3 3" />;
+      })}
+
+      {/* left Y axis labels (tokens) */}
+      {tokenTicks.map((v, ti) => {
+        const y = padT + ih - (ti / 4) * ih;
+        return (
+          <text key={`yt${ti}`} x={padL - 4} y={y + 3} textAnchor="end" className="fill-sky-500" style={{ fontSize: axisFont }}>
+            {fmtNum(v)}
+          </text>
+        );
+      })}
+
+      {/* right Y axis labels (calls) */}
+      {callTicks.map((v, ti) => {
+        const y = padT + ih - (ti / 4) * ih;
+        return (
+          <text key={`yc${ti}`} x={padL + iw + 4} y={y + 3} textAnchor="start" className="fill-amber-500" style={{ fontSize: axisFont }}>
+            {fmtNum(v)}
+          </text>
+        );
+      })}
+
+      {/* area + lines */}
+      <path d={areaD} fill={`url(#usageArea${enlarged ? "L" : "S"})`} />
+      <polyline points={tokenPoints.join(" ")} fill="none" stroke="#0ea5e9" strokeWidth={enlarged ? "2.5" : "2"} strokeLinecap="round" strokeLinejoin="round" />
+      <polyline points={callPoints.join(" ")} fill="none" stroke="#f59e0b" strokeWidth={enlarged ? "2" : "1.5"} strokeDasharray="4 3" strokeLinecap="round" />
+
+      {/* data point dots */}
+      {data.map((_, i) => {
+        const x = xAt(i);
+        const yt = padT + ih - (totals[i] / maxToken) * ih;
+        const yc = padT + ih - (data[i].calls / maxCalls) * ih;
+        const show = hoverIdx === i || (n <= 14 && enlarged);
+        return show ? (
+          <g key={`dot${i}`}>
+            <circle cx={x} cy={yt} r={enlarged ? 3.5 : 2.5} fill="#0ea5e9" stroke="white" strokeWidth="1.5" />
+            <circle cx={x} cy={yc} r={enlarged ? 3 : 2} fill="#f59e0b" stroke="white" strokeWidth="1.5" />
+          </g>
+        ) : null;
+      })}
+
+      {/* hover tooltip */}
+      {hoverIdx !== null && (
+        <>
+          <line x1={xAt(hoverIdx)} y1={padT} x2={xAt(hoverIdx)} y2={padT + ih} stroke="#94a3b8" strokeWidth="0.5" strokeDasharray="2 2" />
+          <rect x={xAt(hoverIdx) - (enlarged ? 70 : 55)} y={padT - (enlarged ? 6 : 2)} width={enlarged ? 140 : 110} height={enlarged ? 48 : 38} rx="6" fill="white" fillOpacity="0.95" stroke="#e2e8f0" strokeWidth="0.5" />
+          <text x={xAt(hoverIdx)} y={padT + (enlarged ? 10 : 10)} textAnchor="middle" className="fill-slate-600 font-medium" style={{ fontSize: enlarged ? "11px" : "9px" }}>
+            {data[hoverIdx].date.slice(5)}
+          </text>
+          <text x={xAt(hoverIdx)} y={padT + (enlarged ? 24 : 21)} textAnchor="middle" className="fill-sky-600" style={{ fontSize: enlarged ? "10px" : "8px" }}>
+            Tokens: {fmtNum(totals[hoverIdx])}
+          </text>
+          <text x={xAt(hoverIdx)} y={padT + (enlarged ? 37 : 31)} textAnchor="middle" className="fill-amber-600" style={{ fontSize: enlarged ? "10px" : "8px" }}>
+            调用: {data[hoverIdx].calls} 次
+          </text>
+        </>
+      )}
+
+      {/* X axis labels */}
+      {data.map((d, i) => {
+        if (i % labelEvery !== 0 && i !== n - 1) return null;
+        return (
+          <text key={d.date + i} x={xAt(i)} y={H - (enlarged ? 8 : 4)} textAnchor="middle" className="fill-slate-400" style={{ fontSize }}>
+            {d.date.slice(5)}
+          </text>
+        );
+      })}
+
+      {/* legend */}
+      <circle cx={padL} cy={padT - 8} r="4" fill="#0ea5e9" />
+      <text x={padL + 8} y={padT - 5} className="fill-sky-600" style={{ fontSize }}>Tokens</text>
+      <circle cx={padL + (enlarged ? 70 : 56)} cy={padT - 8} r="4" fill="#f59e0b" />
+      <text x={padL + (enlarged ? 78 : 64)} y={padT - 5} className="fill-amber-600" style={{ fontSize }}>调用次数</text>
+    </svg>
+  );
+}
+
+/* ---------- ChartModal ---------- */
+function ChartModal({ open, onClose, title, children }: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+}) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="relative mx-4 w-full max-w-4xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-sm font-bold text-slate-800">{title}</h3>
+          <button type="button" onClick={onClose} aria-label="关闭" className="rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/* ---------- StatCard ---------- */
+function StatCard({
+  label,
+  value,
+  sub,
+  accent,
+  icon,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  accent: "sky" | "violet" | "amber" | "emerald";
+  icon?: string;
+}) {
+  const ring =
+    accent === "sky"
+      ? "from-sky-400/20 to-cyan-400/10"
+      : accent === "violet"
+        ? "from-violet-400/20 to-fuchsia-400/10"
+        : accent === "amber"
+          ? "from-amber-400/25 to-orange-300/10"
+          : "from-emerald-400/20 to-teal-400/10";
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-white/80 bg-white/90 p-4 shadow-sm ring-1 ring-slate-100/80 backdrop-blur-sm">
+      <div className={`pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-gradient-to-br ${ring} blur-2xl`} />
+      <div className="relative flex items-center justify-between">
+        <p className="text-[11px] font-medium text-slate-500">{label}</p>
+        {icon && <span className="text-base opacity-50">{icon}</span>}
+      </div>
+      <p className="relative mt-1 text-2xl font-bold tracking-tight text-slate-800">{value}</p>
+      {sub ? <p className="relative mt-0.5 text-[10px] text-slate-400">{sub}</p> : null}
+    </div>
+  );
+}
+
+export default function UsageDashboardPage() {
+  const [loading, setLoading] = useState(true);
+  const [errMsg, setErrMsg] = useState("");
+  const [trendErr, setTrendErr] = useState("");
+  const [overview, setOverview] = useState<UsageOverview | null>(null);
+  const [trend, setTrend] = useState<DayBucket[]>([]);
+  const [records, setRecords] = useState<UsageRecord[]>([]);
+  const [recordsTotal, setRecordsTotal] = useState(0);
+  const [recordsPage, setRecordsPage] = useState(1);
+
+  const [rangePreset, setRangePreset] = useState<"7d" | "14d" | "30d">("7d");
+  const [filterUser, setFilterUser] = useState("");
+  const [filterModel, setFilterModel] = useState("");
+  const [expandedRow, setExpandedRow] = useState<number | null>(null);
+  const [modalChart, setModalChart] = useState<"trend" | "model" | "user" | null>(null);
+
+  const rangeDays = rangePreset === "30d" ? 30 : rangePreset === "14d" ? 14 : 7;
+  const gte = useMemo(() => `${daysAgo8(rangeDays)}T00:00:00.000+08:00`, [rangeDays]);
+
+  const loadAll = useCallback(
+    async (page = 1) => {
+      setLoading(true);
+      setErrMsg("");
+      setTrendErr("");
+      try {
+        const params = { username: filterUser || undefined, gte };
+        const [ov, tr, rc] = await Promise.all([
+          fetchUsageOverview(params),
+          fetchUsageTrend({ ...params, days: rangeDays }),
+          fetchUsageRecords({
+            ...params,
+            modelid: filterModel || undefined,
+            page,
+            page_size: 30,
+          }),
+        ]);
+        if (ov.rc !== 0) {
+          setErrMsg(ov.message);
+        } else {
+          setOverview(ov.data ?? null);
+        }
+        if (tr.rc === 0) {
+          setTrend(tr.data ?? []);
+        } else {
+          setTrend([]);
+          setTrendErr(tr.message || "趋势数据加载失败");
+        }
+        if (rc.rc === 0 && rc.data) {
+          setRecords(rc.data.items);
+          setRecordsTotal(rc.data.total);
+          setRecordsPage(rc.data.page);
+        }
+      } catch (e) {
+        setErrMsg(String(e));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [filterUser, filterModel, gte, rangeDays],
+  );
+
+  useEffect(() => {
+    void loadAll(1);
+  }, [loadAll]);
+
+  const totalPages = Math.ceil(recordsTotal / 30) || 1;
+
+  return (
+    <div className="min-h-[60vh] space-y-5 rounded-3xl border border-sky-100/60 bg-gradient-to-b from-sky-50/90 via-white to-amber-50/40 p-5 shadow-inner sm:p-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-bold text-slate-800">用量分析</h2>
+          <p className="mt-0.5 text-xs text-slate-500">看看大家把 Token 花哪儿啦 ✨</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {(["7d", "14d", "30d"] as const).map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => setRangePreset(p)}
+              className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                rangePreset === p
+                  ? "bg-gradient-to-r from-sky-500 to-cyan-500 text-white shadow-sm shadow-sky-200"
+                  : "bg-white/90 text-slate-600 ring-1 ring-slate-200/80 hover:bg-sky-50"
+              }`}
+            >
+              {p === "7d" ? "近 7 天" : p === "14d" ? "近 14 天" : "近 30 天"}
+            </button>
+          ))}
+          <input
+            type="text"
+            placeholder="用户名"
+            value={filterUser}
+            onChange={(e) => setFilterUser(e.target.value)}
+            className="w-24 rounded-full border-0 bg-white/95 px-3 py-1.5 text-xs shadow-sm ring-1 ring-slate-200/80 focus:ring-2 focus:ring-sky-300"
+          />
+          <input
+            type="text"
+            placeholder="模型"
+            value={filterModel}
+            onChange={(e) => setFilterModel(e.target.value)}
+            className="w-32 rounded-full border-0 bg-white/95 px-3 py-1.5 text-xs shadow-sm ring-1 ring-slate-200/80 focus:ring-2 focus:ring-sky-300"
+          />
+          <button
+            type="button"
+            onClick={() => void loadAll(1)}
+            className="rounded-full bg-slate-800 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-slate-700"
+          >
+            查询
+          </button>
+        </div>
+      </div>
+
+      {errMsg && (
+        <div className="rounded-2xl border border-amber-200/80 bg-amber-50/90 px-4 py-3 text-sm text-amber-900">
+          {errMsg}
+        </div>
+      )}
+
+      {loading && !overview ? (
+        <p className="py-12 text-center text-sm text-slate-400">加载中…</p>
+      ) : overview ? (
+        <>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <StatCard label="总调用次数" value={fmtNum(overview.total_calls)} accent="sky" />
+            <StatCard
+              label="输入 Tokens"
+              value={fmtNum(overview.total_input_tokens)}
+              sub={overview.total_cached_tokens ? `缓存 ${fmtNum(overview.total_cached_tokens)}` : undefined}
+              accent="violet"
+            />
+            <StatCard label="输出 Tokens" value={fmtNum(overview.total_output_tokens)} accent="amber" />
+            <StatCard
+              label="总 Tokens"
+              value={fmtNum(overview.total_input_tokens + overview.total_output_tokens)}
+              accent="emerald"
+            />
+          </div>
+
+          {/* 每日趋势 — 全宽 */}
+          <div
+            className="cursor-pointer rounded-2xl border border-sky-100/80 bg-white/85 p-4 shadow-sm ring-1 ring-slate-100/60 backdrop-blur-sm transition hover:shadow-md"
+            onClick={() => setModalChart("trend")}
+          >
+            <div className="mb-2 flex items-center justify-between gap-2 px-0.5">
+              <h3 className="text-xs font-semibold text-sky-700">每日趋势</h3>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-slate-400">{trend.length} 天</span>
+                <span className="text-[10px] text-sky-400" title="点击放大查看">
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M3 3h5M3 3v5M17 17h-5m5 0v-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                </span>
+              </div>
+            </div>
+            {trendErr ? (
+              <p className="rounded-xl bg-rose-50 px-2 py-2 text-[11px] text-rose-700">{trendErr}</p>
+            ) : null}
+            <TrendChart data={trend} />
+          </div>
+
+          {/* 按模型 / 按用户 — 双列 */}
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div
+              className="cursor-pointer rounded-2xl border border-violet-100/80 bg-white/85 p-4 shadow-sm ring-1 ring-slate-100/60 transition hover:shadow-md"
+              onClick={() => setModalChart("model")}
+            >
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="text-xs font-semibold text-violet-700">按模型</h3>
+                <span className="text-[10px] text-violet-300" title="点击放大查看">
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M3 3h5M3 3v5M17 17h-5m5 0v-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                </span>
+              </div>
+              <BarChart
+                data={overview.by_model}
+                labelKey="model"
+                valueKeys={["input_tokens", "output_tokens"]}
+                valueLabels={["输入", "输出"]}
+                colors={["#8b5cf6", "#c4b5fd"]}
+              />
+            </div>
+            <div
+              className="cursor-pointer rounded-2xl border border-emerald-100/80 bg-white/85 p-4 shadow-sm ring-1 ring-slate-100/60 transition hover:shadow-md"
+              onClick={() => setModalChart("user")}
+            >
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="text-xs font-semibold text-emerald-700">按用户</h3>
+                <span className="text-[10px] text-emerald-300" title="点击放大查看">
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M3 3h5M3 3v5M17 17h-5m5 0v-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                </span>
+              </div>
+              <BarChart
+                data={overview.by_user}
+                labelKey="username"
+                valueKeys={["input_tokens", "output_tokens"]}
+                valueLabels={["输入", "输出"]}
+                colors={["#34d399", "#6ee7b7"]}
+              />
+            </div>
+          </div>
+
+          {/* 放大弹窗 */}
+          <ChartModal open={modalChart === "trend"} onClose={() => setModalChart(null)} title="每日趋势（放大）">
+            <TrendChart data={trend} enlarged />
+          </ChartModal>
+          <ChartModal open={modalChart === "model"} onClose={() => setModalChart(null)} title="按模型分布（放大）">
+            <div className="max-h-[60vh] overflow-y-auto">
+              <BarChart
+                data={overview.by_model}
+                labelKey="model"
+                valueKeys={["input_tokens", "output_tokens"]}
+                valueLabels={["输入", "输出"]}
+                colors={["#8b5cf6", "#c4b5fd"]}
+              />
+            </div>
+          </ChartModal>
+          <ChartModal open={modalChart === "user"} onClose={() => setModalChart(null)} title="按用户分布（放大）">
+            <div className="max-h-[60vh] overflow-y-auto">
+              <BarChart
+                data={overview.by_user}
+                labelKey="username"
+                valueKeys={["input_tokens", "output_tokens"]}
+                valueLabels={["输入", "输出"]}
+                colors={["#34d399", "#6ee7b7"]}
+              />
+            </div>
+          </ChartModal>
+
+          <div className="overflow-hidden rounded-2xl border border-slate-100/80 bg-white/90 shadow-sm ring-1 ring-slate-100/50">
+            <div className="flex items-center justify-between border-b border-slate-100/80 bg-gradient-to-r from-slate-50/80 to-white px-4 py-2.5">
+              <h3 className="text-xs font-semibold text-slate-700">调用明细</h3>
+              <span className="text-[10px] text-slate-400">共 {recordsTotal} 条</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-[11px]">
+                <thead>
+                  <tr className="border-b border-slate-100 text-slate-500">
+                    <th className="px-3 py-2 font-medium">时间</th>
+                    <th className="px-3 py-2 font-medium">用户</th>
+                    <th className="px-3 py-2 font-medium">模型</th>
+                    <th className="px-3 py-2 text-right font-medium">输入</th>
+                    <th className="px-3 py-2 text-right font-medium">输出</th>
+                    <th className="px-3 py-2 text-right font-medium">耗时</th>
+                    <th className="px-3 py-2 font-medium">流式</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {records.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-3 py-8 text-center text-slate-400">
+                        暂无记录
+                      </td>
+                    </tr>
+                  ) : (
+                    records.map((r, i) => (
+                      <Fragment key={`${r.start_time}-${i}`}>
+                        <tr
+                          className={`cursor-pointer border-b border-slate-50/90 transition hover:bg-sky-50/50 ${
+                            expandedRow === i ? "bg-sky-50/60" : ""
+                          }`}
+                          onClick={() => setExpandedRow(expandedRow === i ? null : i)}
+                        >
+                          <td className="whitespace-nowrap px-3 py-2 text-slate-600">
+                            {r.start_time?.slice(5, 19).replace("T", " ")}
+                          </td>
+                          <td className="px-3 py-2 text-slate-700">{r.username ?? "-"}</td>
+                          <td className="px-3 py-2">
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">
+                              {r.modelid}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-right tabular-nums text-slate-700">
+                            {fmtNum(r.input_token)}
+                          </td>
+                          <td className="px-3 py-2 text-right tabular-nums text-slate-700">
+                            {fmtNum(r.output_token)}
+                          </td>
+                          <td className="px-3 py-2 text-right tabular-nums text-slate-500">
+                            {r.cost_time}s
+                          </td>
+                          <td className="px-3 py-2 text-slate-400">{r.stream ? "是" : "否"}</td>
+                        </tr>
+                        {expandedRow === i ? (
+                          <tr className="bg-slate-50/80">
+                            <td colSpan={7} className="px-3 py-3">
+                              <div className="grid gap-3 md:grid-cols-2">
+                                <div>
+                                  <p className="mb-1 text-[10px] font-medium text-slate-400">请求摘要</p>
+                                  <pre className="max-h-36 overflow-auto whitespace-pre-wrap rounded-xl border border-slate-100 bg-white p-2 text-[10px] text-slate-600">
+                                    {r.input_content ? tryPrettyJson(r.input_content) : "(无)"}
+                                  </pre>
+                                </div>
+                                <div>
+                                  <p className="mb-1 text-[10px] font-medium text-slate-400">响应内容</p>
+                                  <pre className="max-h-36 overflow-auto whitespace-pre-wrap rounded-xl border border-slate-100 bg-white p-2 text-[10px] text-slate-600">
+                                    {r.output_content || "(无)"}
+                                  </pre>
+                                </div>
+                              </div>
+                              <div className="mt-2 flex flex-wrap gap-3 text-[10px] text-slate-400">
+                                {r.session_id ? <span>会话: {r.session_id}</span> : null}
+                                {r.routing_key ? <span>路由: {r.routing_key}</span> : null}
+                                {r.clientid ? <span>客户端: {r.clientid}</span> : null}
+                                {r.input_cached_token > 0 ? (
+                                  <span>缓存命中: {fmtNum(r.input_cached_token)}</span>
+                                ) : null}
+                              </div>
+                            </td>
+                          </tr>
+                        ) : null}
+                      </Fragment>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+            {totalPages > 1 ? (
+              <div className="flex items-center justify-center gap-2 border-t border-slate-100/80 px-3 py-2.5">
+                <button
+                  type="button"
+                  disabled={recordsPage <= 1}
+                  onClick={() => void loadAll(recordsPage - 1)}
+                  className="rounded-full px-3 py-1 text-[11px] text-slate-600 hover:bg-slate-100 disabled:opacity-40"
+                >
+                  上一页
+                </button>
+                <span className="text-[11px] text-slate-500">
+                  {recordsPage} / {totalPages}
+                </span>
+                <button
+                  type="button"
+                  disabled={recordsPage >= totalPages}
+                  onClick={() => void loadAll(recordsPage + 1)}
+                  className="rounded-full px-3 py-1 text-[11px] text-slate-600 hover:bg-slate-100 disabled:opacity-40"
+                >
+                  下一页
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function tryPrettyJson(s: string): string {
+  try {
+    return JSON.stringify(JSON.parse(s), null, 2);
+  } catch {
+    return s;
+  }
+}

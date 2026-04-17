@@ -64,6 +64,7 @@ class AssetPublicOut(BaseModel):
 
 class DownloadContextDataOut(BaseModel):
     version: str
+    published_at: str | None = None
     slogan: str
     logo_url: str
     recommended_platform: Platform | None

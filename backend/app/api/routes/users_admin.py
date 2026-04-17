@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,14 +23,14 @@ class UserRolePatchBody(BaseModel):
 
 
 class UserCreateBody(BaseModel):
-    email: EmailStr
+    email: str = Field(..., min_length=3, max_length=255)
     password: str = Field(..., min_length=6, max_length=128)
     display_name: str | None = Field(default=None, max_length=255)
     role: str = Field(default="viewer", min_length=3, max_length=64)
 
 
 class UserPatchBody(BaseModel):
-    email: EmailStr | None = None
+    email: str | None = Field(default=None, min_length=3, max_length=255)
     display_name: str | None = Field(default=None, max_length=255)
     password: str | None = Field(default=None, min_length=6, max_length=128)
     role: str | None = Field(default=None, min_length=3, max_length=64)

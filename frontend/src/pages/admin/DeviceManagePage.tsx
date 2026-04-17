@@ -57,8 +57,13 @@ export default function DeviceManagePage() {
 
   useEffect(() => {
     if (!ready) return;
-    // 如果不为空，则说明有查询条件；如果是初次加载，可以确保拉取全部数据。
     void load(page);
+  }, [ready, page, load]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const timer = setInterval(() => void load(page), 30_000);
+    return () => clearInterval(timer);
   }, [ready, page, load]);
 
   function applyFilters() {

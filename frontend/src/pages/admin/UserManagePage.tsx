@@ -40,9 +40,9 @@ export default function UserManagePage() {
     void load();
   }, []);
 
-  async function onToggleRole(u: AdminUserItem) {
-    const next = u.role === "viewer" ? "ops_admin" : "viewer";
-    const res = await patchAdminUserRole(u.id, next);
+  async function onChangeRole(u: AdminUserItem, newRole: string) {
+    if (newRole === u.role) return;
+    const res = await patchAdminUserRole(u.id, newRole);
     setMessage(res.message || (res.rc === 0 ? "已更新" : "更新失败"));
     if (res.rc === 0) await load();
   }
@@ -152,14 +152,27 @@ export default function UserManagePage() {
                 <tr><td className="px-3 py-4 text-slate-500" colSpan={5}>加载中…</td></tr>
               ) : items.map((u) => (
                 <tr key={u.id} className="border-t border-slate-100">
-                  <td className="px-3 py-2">{u.email}</td>
-                  <td className="px-3 py-2">{u.display_name || "-"}</td>
-                  <td className="px-3 py-2">{u.role}</td>
-                  <td className="px-3 py-2 text-xs text-slate-500">{(u.menu_permissions || []).join(", ") || "-"}</td>
-                  <td className="px-3 py-2 space-x-2">
-                    <button type="button" className="rounded-md border border-slate-200 px-2 py-1 hover:bg-slate-50" onClick={() => startEdit(u)}>编辑</button>
-                    <button type="button" className="rounded-md border border-slate-200 px-2 py-1 hover:bg-slate-50" onClick={() => void onToggleRole(u)}>快速切换</button>
-                    <button type="button" className="rounded-md border border-red-200 px-2 py-1 text-red-600 hover:bg-red-50" onClick={() => void onDeleteUser(u)}>删除</button>
+                  <td className="px-3 py-3 font-medium text-slate-800">{u.email}</td>
+                  <td className="px-3 py-3 text-slate-600">{u.display_name || "-"}</td>
+                  <td className="px-3 py-3">
+                    <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-800 border border-slate-200">
+                      {u.role}
+                    </span>
+                  </td>
+                  <td className="px-3 py-3 text-xs text-slate-500 max-w-[200px] truncate">{(u.menu_permissions || []).join(", ") || "-"}</td>
+                  <td className="px-3 py-3 space-x-2 whitespace-nowrap">
+                    <select
+                      className="rounded border border-slate-200 px-2 py-1 text-xs"
+                      value={u.role}
+                      onChange={(e) => void onChangeRole(u, e.target.value)}
+                      aria-label={`${u.email} 角色`}
+                    >
+                      {ROLES.map((r) => (
+                        <option key={r} value={r}>{r}</option>
+                      ))}
+                    </select>
+                    <button type="button" className="rounded border border-sky-200 bg-sky-50 px-2 py-1 text-xs font-medium text-sky-700 hover:bg-sky-100 transition-colors" onClick={() => startEdit(u)}>编辑</button>
+                    <button type="button" className="rounded border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-100 hover:text-red-700 transition-colors" onClick={() => void onDeleteUser(u)}>删除</button>
                   </td>
                 </tr>
               ))}

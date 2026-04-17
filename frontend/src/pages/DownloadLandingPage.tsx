@@ -20,6 +20,7 @@ export default function DownloadLandingPage() {
   const [slogan, setSlogan] = useState("CrewCentral 客户端");
   const [logoUrl, setLogoUrl] = useState("");
   const [version, setVersion] = useState("");
+  const [publishedAt, setPublishedAt] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
   const [changelog, setChangelog] = useState<{ type: "new" | "fix"; text: string }[]>([]);
   const [assets, setAssets] = useState<AssetPublic[]>([]);
@@ -40,6 +41,7 @@ export default function DownloadLandingPage() {
       setSlogan(d.slogan || "CrewCentral 客户端");
       setLogoUrl(d.logo_url || "");
       setVersion(d.version || "");
+      setPublishedAt(d.published_at || null);
       setNotes(d.release_notes_excerpt || "");
       setChangelog(d.changelog_entries || []);
       setAssets(d.all_assets || []);
@@ -75,6 +77,18 @@ export default function DownloadLandingPage() {
           <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1fr_380px] lg:items-start">
             <div className="space-y-10">
               <HeroSection logoUrl={logoUrl} slogan={slogan} versionLabel={version} />
+              {version ? (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs text-emerald-800">
+                  当前发布版本：<span className="font-mono font-medium">{version}</span>
+                  {publishedAt ? (
+                    <span className="ml-2 text-emerald-700">发布时间：{new Date(publishedAt).toLocaleString()}</span>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800">
+                  当前暂无已发布版本，请管理员在「客户端发布」中执行“创建并发布”或发布草稿。
+                </div>
+              )}
               <DownloadButtonGroup
                 recommended={recommended}
                 assets={assets}
