@@ -85,8 +85,14 @@ export default function ReleasePublishPage() {
   const load = useCallback(async () => {
     setLoading(true);
     const res = await listAdminReleases();
-    if (res.rc === 0 && res.data?.items) setItems(res.data.items);
+    if (res.rc === 0 && Array.isArray(res.data?.items)) setItems(res.data.items);
     setLoading(false);
+  }, []);
+
+  /** 合并单条发布记录，避免 GET 列表偶发缓存时 UI 不刷新 */
+  const applyReleasePatch = useCallback((patch: ClientReleaseAdmin | undefined) => {
+    if (!patch?.id) return;
+    setItems((prev) => prev.map((x) => (x.id === patch.id ? { ...x, ...patch } : x)));
   }, []);
 
   useEffect(() => {
@@ -222,14 +228,20 @@ export default function ReleasePublishPage() {
     setMessage(null);
     const res = await publishAdminRelease(id);
     setMessage(res.message || (res.rc === 0 ? "已发布" : "发布失败"));
-    if (res.rc === 0) await load();
+    if (res.rc === 0) {
+      await load();
+      applyReleasePatch(res.data);
+    }
   }
 
   async function onArchive(id: string) {
     setMessage(null);
     const res = await archiveAdminRelease(id);
     setMessage(res.message || (res.rc === 0 ? "已归档" : "操作失败"));
-    if (res.rc === 0) await load();
+    if (res.rc === 0) {
+      await load();
+      applyReleasePatch(res.data);
+    }
   }
 
   if (!ready) return null;

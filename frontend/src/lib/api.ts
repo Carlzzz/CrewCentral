@@ -24,7 +24,10 @@ function normalizeResponse<T>(raw: Record<string, unknown>, status: number): RcR
 }
 
 export async function getJson<T>(path: string): Promise<RcResponse<T>> {
-  const res = await fetch(`${apiPrefix()}${path}`, { credentials: "include" });
+  const res = await fetch(`${apiPrefix()}${path}`, {
+    credentials: "include",
+    cache: "no-store",
+  });
   return normalizeResponse<T>(await res.json(), res.status);
 }
 
