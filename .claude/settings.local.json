@@ -17,7 +17,10 @@
       "Read(//Users/o0eeqg/frontend/**)",
       "Read(//c/Users/o0eeqg/frontend/**)",
       "Read(//Users/o0eeqg/backend/app/core/**)",
-      "Read(//c/Users/o0eeqg/backend/app/core/**)"
+      "Read(//c/Users/o0eeqg/backend/app/core/**)",
+      "Read(//c/c/Users/zhaocao/Documents/GitHub/CrewCentral/frontend/**)",
+      "Bash(npx vite *)",
+      "Read(//c/Users/zhaocao/AppData/Local/Temp/claude/c--Users-zhaocao-Documents-GitHub-CrewCentral/ad5d5843-c55b-464d-8715-5637c96b0c95/tasks/**)"
     ]
   }
 }
