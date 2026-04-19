@@ -5,7 +5,10 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from pathlib import Path
+
 from app.api.deps import require_session_permission
+from app.core.config import get_settings
 from app.db.session import get_db
 from app.models.skill import Skill
 from app.models.skill_assignment import SkillAssignment
@@ -262,3 +265,46 @@ async def update_assignments(
     await sync_skill_distribution_flags(db, {item.skill_id for item in body.skills})
     await db.commit()
     return rc_ok(message="绑定配置已保存")
+
+
+@router.delete("/{skill_id}")
+async def delete_skill(
+    skill_id: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_session_permission("skills")),
+) -> dict:
+    _ = request
+    skill = await db.get(Skill, skill_id)
+    if skill is None:
+        return rc_err("技能不存在")
+
+    # 获取所有版本并删除文件
+    versions = (
+        await db.scalars(select(SkillVersion).where(SkillVersion.skill_id == skill_id))
+    ).all()
+
+    settings = get_settings()
+    for ver in versions:
+        if ver.package_path:
+            p = Path(ver.package_path)
+            if p.is_file():
+                try:
+                    p.unlink()
+                except OSError:
+                    pass  # 删除失败继续执行
+
+    # 删除相关记录（通过数据库级联或显式删除）
+    await db.execute(
+        SkillAssignment.__table__.delete().where(SkillAssignment.skill_id == skill_id)
+    )
+    await db.execute(
+        SkillAuditLog.__table__.delete().where(SkillAuditLog.skill_id == skill_id)
+    )
+    await db.execute(
+        SkillVersion.__table__.delete().where(SkillVersion.skill_id == skill_id)
+    )
+    await db.delete(skill)
+
+    await db.commit()
+    return rc_ok(message="技能已删除")

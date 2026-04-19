@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { SkillListItem } from "../../lib/skills-api";
-import { toggleDispatch } from "../../lib/skills-api";
+import { toggleDispatch, deleteSkill } from "../../lib/skills-api";
 
 type Props = {
   item: SkillListItem;
@@ -25,9 +25,19 @@ export default function SkillCard({ item, onChanged }: Props) {
   }
 
   function onConfigure() {
-    // Navigate to assignment page and optionally we could pass skill ID via state 
+    // Navigate to assignment page and optionally we could pass skill ID via state
     // to auto-select it, but for now just navigate to the page
     navigate("/admin/skills/assignments");
+  }
+
+  async function onDelete() {
+    const confirmed = confirm(
+      `确定要删除技能「${item.name}」吗？此操作不可恢复，将同时删除所有版本、分发配置和审计日志。`,
+    );
+    if (!confirmed) return;
+    const res = await deleteSkill(item.id);
+    alert(res.message || (res.rc === 0 ? "已删除" : "删除失败"));
+    if (res.rc === 0) onChanged?.();
   }
 
   return (
@@ -96,6 +106,14 @@ export default function SkillCard({ item, onChanged }: Props) {
             onClick={onConfigure}
           >
             权限配置
+          </button>
+          <button
+            type="button"
+            className="shrink-0 rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-medium text-red-600 shadow-sm hover:bg-red-50 transition-colors"
+            onClick={() => void onDelete()}
+            title="删除技能"
+          >
+            删除
           </button>
         </div>
       </div>

@@ -125,3 +125,11 @@ export async function fetchManifest(params: {
   });
   return (await res.json()) as RcResponse<{ items: unknown[] }>;
 }
+
+export async function deleteSkill(skillId: string): Promise<RcResponse<unknown>> {
+  const res = await fetch(`${apiPrefix()}/admin/skills/${encodeURIComponent(skillId)}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  return (await res.json()) as RcResponse<unknown>;
+}
