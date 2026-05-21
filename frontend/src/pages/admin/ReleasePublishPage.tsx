@@ -9,6 +9,7 @@ import {
   deleteAdminRelease,
   listAdminReleases,
   publishAdminRelease,
+  restoreAdminRelease,
   type ChangelogEntry,
   type ClientReleaseAdmin,
   type Platform,
@@ -185,8 +186,12 @@ export default function ReleasePublishPage() {
     localStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
   }, [ready, version, releaseNotes, updatePolicy, enabled, urls, names, md5, sha, changelogLines]);
 
-  function togglePlatform(p: Platform) {
-    setEnabled((prev) => ({ ...prev, [p]: !prev[p] }));
+  function selectPlatform(p: Platform) {
+    setEnabled({
+      windows: p === "windows",
+      macos: p === "macos",
+      linux: p === "linux",
+    });
   }
 
   function addChangelogRow() {
@@ -326,6 +331,26 @@ export default function ReleasePublishPage() {
     });
   }
 
+  function requestRestore(id: string, ver: string) {
+    setConfirmState({
+      open: true,
+      title: "恢复确认",
+      description: `确定要恢复版本 ${ver} 吗？恢复后，该版本将变回“草稿”状态，需要重新发布才可公开下载。`,
+      confirmLabel: "确认恢复",
+      variant: "default",
+      action: async () => {
+        const res = await restoreAdminRelease(id);
+        if (res.rc === 0) {
+          showToast(`版本 ${ver} 已恢复为草稿`, "success");
+          await load();
+          applyReleasePatch(res.data);
+        } else {
+          showToast(res.message || "操作失败", "error");
+        }
+      },
+    });
+  }
+
   async function handleConfirm() {
     if (!confirmState.action) return;
     setConfirmLoading(true);
@@ -413,9 +438,10 @@ export default function ReleasePublishPage() {
                   }`}
                 >
                   <input
-                    type="checkbox"
+                    type="radio"
+                    name="platform-select"
                     checked={enabled[p]}
-                    onChange={() => togglePlatform(p)}
+                    onChange={() => selectPlatform(p)}
                     className="accent-sky-600"
                   />
                   <span>{PLATFORM_ICONS[p]}</span>
@@ -661,13 +687,24 @@ export default function ReleasePublishPage() {
                             </button>
                           ) : null}
                           {it.status === "archived" ? (
-                            <button
-                              type="button"
-                              className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-600 shadow-sm transition hover:bg-rose-100"
-                              onClick={() => requestDelete(it.id, it.version)}
-                            >
-                              删除
-                            </button>
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                disabled={busyId === it.id}
+                                className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 shadow-sm transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                onClick={() => requestRestore(it.id, it.version)}
+                              >
+                                恢复
+                              </button>
+                              <button
+                                type="button"
+                                disabled={busyId === it.id}
+                                className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-600 shadow-sm transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                onClick={() => requestDelete(it.id, it.version)}
+                              >
+                                删除
+                              </button>
+                            </div>
                           ) : null}
                         </div>
                       </td>

@@ -118,6 +118,10 @@ export async function archiveAdminRelease(id: string): Promise<RcResponse<Client
   return postJson(`/admin/releases/${encodeURIComponent(id)}/archive`, {});
 }
 
+export async function restoreAdminRelease(id: string): Promise<RcResponse<ClientReleaseAdmin>> {
+  return postJson(`/admin/releases/${encodeURIComponent(id)}/restore`, {});
+}
+
 export async function deleteAdminRelease(id: string): Promise<RcResponse<unknown>> {
   return deleteJson(`/admin/releases/${encodeURIComponent(id)}`);
 }

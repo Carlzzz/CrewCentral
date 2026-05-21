@@ -295,6 +295,30 @@ async def archive_release(
     return rc_ok(_serialize(r), message="已归档")
 
 
+@router.post("/{release_id}/restore")
+async def restore_release(
+    release_id: str,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_session_permission("releases")),
+) -> dict[str, Any]:
+    r = await db.scalar(
+        select(ClientRelease)
+        .where(ClientRelease.id == release_id)
+        .options(selectinload(ClientRelease.assets))
+    )
+    if r is None:
+        return rc_err("发布不存在")
+    if r.status != "archived":
+        return rc_err("仅可恢复已归档的发布")
+
+    r.status = "draft"
+    _audit(db, release_id=r.id, action="restore", actor=admin, summary=f"version={r.version}")
+    await db.commit()
+    await db.refresh(r, ["assets"])
+    log.info("client_release restored id=%s actor=%s", r.id, admin.id)
+    return rc_ok(_serialize(r), message="已恢复为草稿")
+
+
 @router.post("/upload")
 async def upload_release_asset(
     file: UploadFile = File(...),
