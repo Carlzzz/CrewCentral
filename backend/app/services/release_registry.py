@@ -77,3 +77,35 @@ def asset_to_public(a: ClientReleaseAsset) -> dict[str, Any]:
         "md5": a.md5,
         "sha256": a.sha256,
     }
+
+
+async def get_aggregated_platform_assets(
+    session: AsyncSession,
+) -> tuple[ClientRelease | None, list[dict[str, Any]]]:
+    """Return (latest_release, aggregated_assets).
+
+    For each platform, pick the asset from the highest-semver published release
+    that provides that platform.  This ensures uploading a Mac-only release does
+    not hide existing Windows downloads from an earlier release.
+    """
+    result = await session.scalars(
+        select(ClientRelease)
+        .where(ClientRelease.status == "published")
+        .options(selectinload(ClientRelease.assets))
+    )
+    rows = list(result.all())
+    if not rows:
+        return None, []
+
+    # Sort descending by semver
+    rows.sort(key=lambda r: semver_tuple(r.version), reverse=True)
+    latest = rows[0]
+
+    # Collect best (highest-version) asset per platform
+    best_per_platform: dict[str, dict[str, Any]] = {}
+    for r in rows:
+        for a in (r.assets or []):
+            if a.platform not in best_per_platform:
+                best_per_platform[a.platform] = asset_to_public(a)
+
+    return latest, list(best_per_platform.values())

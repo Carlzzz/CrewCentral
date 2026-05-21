@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import ConfirmDialog from "../../components/ui/ConfirmDialog";
+import { useToast } from "../../components/ui/Toast";
 import { fetchSessionUserinfo } from "../../lib/api";
 import {
   archiveAdminRelease,
   createAdminRelease,
+  deleteAdminRelease,
   listAdminReleases,
   publishAdminRelease,
   type ChangelogEntry,
@@ -33,12 +36,24 @@ function semverTuple(v: string): [number, number, number] {
   return [Number(m[1] || 0), Number(m[2] || 0), Number(m[3] || 0)];
 }
 
+const PLATFORM_LABELS: Record<Platform, string> = {
+  windows: "Windows",
+  macos: "macOS",
+  linux: "Linux",
+};
+
+const PLATFORM_ICONS: Record<Platform, string> = {
+  windows: "🪟",
+  macos: "🍎",
+  linux: "🐧",
+};
+
 export default function ReleasePublishPage() {
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [ready, setReady] = useState(false);
   const [items, setItems] = useState<ClientReleaseAdmin[]>([]);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState<string | null>(null);
 
   const [version, setVersion] = useState("1.0.0");
   const [releaseNotes, setReleaseNotes] = useState("");
@@ -71,6 +86,33 @@ export default function ReleasePublishPage() {
   const [changelogLines, setChangelogLines] = useState<ChangelogEntry[]>([
     { type: "new", text: "" },
   ]);
+
+  /* --- button loading states --- */
+  const [creatingDraft, setCreatingDraft] = useState(false);
+  const [creatingPublish, setCreatingPublish] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  /* --- confirm dialog --- */
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    confirmLabel: string;
+    variant: "default" | "danger";
+    action: (() => Promise<void>) | null;
+  }>({
+    open: false,
+    title: "",
+    description: "",
+    confirmLabel: "",
+    variant: "default",
+    action: null,
+  });
+  const [confirmLoading, setConfirmLoading] = useState(false);
+
+  /* --- uploading per-platform --- */
+  const [uploadingPlatform, setUploadingPlatform] = useState<Platform | null>(null);
+
   const latestPublishedId = items
     .filter((x) => x.status === "published")
     .sort((a, b) => {
@@ -119,13 +161,13 @@ export default function ReleasePublishPage() {
           if (Array.isArray(d.changelogLines) && d.changelogLines.length > 0) {
             setChangelogLines(d.changelogLines);
           }
-          setMessage("已恢复上次未提交的发布表单草稿。");
+          showToast("已恢复上次未提交的发布表单草稿", "info");
         }
       } catch {
         // ignore broken draft payload
       }
     })();
-  }, [load, navigate]);
+  }, [load, navigate, showToast]);
 
   useEffect(() => {
     if (!ready) return;
@@ -152,20 +194,22 @@ export default function ReleasePublishPage() {
   }
 
   async function onUploadPackage(p: Platform, file: File) {
+    setUploadingPlatform(p);
     const res = await uploadReleasePackage(file);
+    setUploadingPlatform(null);
     if (res.rc !== 0 || !res.data) {
-      setMessage(res.message || "上传失败");
+      showToast(res.message || "上传失败", "error");
       return;
     }
     setUrls((o) => ({ ...o, [p]: res.data!.download_url }));
     setNames((o) => ({ ...o, [p]: res.data!.file_name || file.name }));
     setMd5((o) => ({ ...o, [p]: res.data!.md5 }));
     setSha((o) => ({ ...o, [p]: res.data!.sha256 }));
-    setMessage("安装包已上传并填充到表单；请点击“创建草稿”或“创建并发布”后才会持久化并出现在下载页。");
+    showToast(`${PLATFORM_LABELS[p]} 安装包已上传并填充到表单`, "success");
   }
 
   async function onCreateDraft() {
-    setMessage(null);
+    setCreatingDraft(true);
     const enabledList = PLATFORMS.filter((p) => enabled[p]);
     const assets = enabledList.map((p) => ({
       platform: p,
@@ -187,15 +231,18 @@ export default function ReleasePublishPage() {
       assets,
     };
     const res = await createAdminRelease(body);
-    setMessage(res.message || (res.rc === 0 ? "已创建草稿" : "创建失败"));
+    setCreatingDraft(false);
     if (res.rc === 0) {
+      showToast("草稿已创建", "success");
       localStorage.removeItem(DRAFT_KEY);
       await load();
+    } else {
+      showToast(res.message || "创建失败", "error");
     }
   }
 
   async function onCreateAndPublish() {
-    setMessage(null);
+    setCreatingPublish(true);
     const enabledList = PLATFORMS.filter((p) => enabled[p]);
     const assets = enabledList.map((p) => ({
       platform: p,
@@ -217,99 +264,162 @@ export default function ReleasePublishPage() {
       assets,
     };
     const res = await createAdminRelease(body);
-    setMessage(res.message || (res.rc === 0 ? "已创建并发布" : "创建失败"));
+    setCreatingPublish(false);
     if (res.rc === 0) {
+      showToast("版本已创建并发布 🎉", "success");
       localStorage.removeItem(DRAFT_KEY);
       await load();
+    } else {
+      showToast(res.message || "创建失败", "error");
     }
   }
 
   async function onPublish(id: string) {
-    setMessage(null);
+    setBusyId(id);
     const res = await publishAdminRelease(id);
-    setMessage(res.message || (res.rc === 0 ? "已发布" : "发布失败"));
+    setBusyId(null);
     if (res.rc === 0) {
+      showToast("版本已成功发布 🎉", "success");
       await load();
       applyReleasePatch(res.data);
+    } else {
+      showToast(res.message || "发布失败", "error");
     }
   }
 
-  async function onArchive(id: string) {
-    setMessage(null);
-    const res = await archiveAdminRelease(id);
-    setMessage(res.message || (res.rc === 0 ? "已归档" : "操作失败"));
-    if (res.rc === 0) {
-      await load();
-      applyReleasePatch(res.data);
+  function requestArchive(id: string, ver: string) {
+    setConfirmState({
+      open: true,
+      title: "归档确认",
+      description: `确定要归档版本 ${ver} 吗？归档后用户将无法从该版本下载。`,
+      confirmLabel: "确认归档",
+      variant: "default",
+      action: async () => {
+        const res = await archiveAdminRelease(id);
+        if (res.rc === 0) {
+          showToast(`版本 ${ver} 已归档`, "success");
+          await load();
+          applyReleasePatch(res.data);
+        } else {
+          showToast(res.message || "操作失败", "error");
+        }
+      },
+    });
+  }
+
+  function requestDelete(id: string, ver: string) {
+    setConfirmState({
+      open: true,
+      title: "删除确认",
+      description: `确定要永久删除版本 ${ver} 吗？此操作不可恢复，关联的安装包文件也将被删除。`,
+      confirmLabel: "永久删除",
+      variant: "danger",
+      action: async () => {
+        const res = await deleteAdminRelease(id);
+        if (res.rc === 0) {
+          showToast(res.message || `版本 ${ver} 已删除`, "success");
+          await load();
+        } else {
+          showToast(res.message || "删除失败", "error");
+        }
+      },
+    });
+  }
+
+  async function handleConfirm() {
+    if (!confirmState.action) return;
+    setConfirmLoading(true);
+    try {
+      await confirmState.action();
+    } finally {
+      setConfirmLoading(false);
+      setConfirmState((s) => ({ ...s, open: false, action: null }));
     }
+  }
+
+  function handleCancelConfirm() {
+    if (confirmLoading) return;
+    setConfirmState((s) => ({ ...s, open: false, action: null }));
   }
 
   if (!ready) return null;
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-8">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100/60 p-4 md:p-8">
       <div className="mx-auto max-w-5xl space-y-6">
+        {/* Header */}
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">客户端发布</h1>
-          <p className="text-sm text-slate-500">管理版本、下载链接与校验信息（服务端鉴权）</p>
+          <h1 className="text-2xl font-bold text-slate-900">客户端发布</h1>
+          <p className="mt-1 text-sm text-slate-500">管理版本、下载链接与校验信息</p>
         </div>
 
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          说明：上传安装包仅是把文件传到服务器并回填表单，不会自动生成发布记录。
-          需要点击“创建草稿”或“创建并发布”，下载页只显示“已发布”版本。
+        {/* Info banner */}
+        <div className="flex items-start gap-3 rounded-xl border border-amber-200/80 bg-gradient-to-r from-amber-50 to-orange-50/50 px-4 py-3 text-sm text-amber-800 shadow-sm">
+          <span className="mt-0.5 text-lg leading-none">💡</span>
+          <p>
+            上传安装包仅将文件传到服务器并回填表单，不会自动生成发布记录。
+            需点击「创建草稿」或「创建并发布」，下载页只显示已发布版本。
+            <strong className="font-medium">各平台安装包互相独立</strong>，上传某平台不影响其他平台。
+          </p>
         </div>
 
-        {message ? (
-          <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-800">
-            {message}
-          </div>
-        ) : null}
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
-          <h2 className="text-lg font-medium text-slate-900">新建草稿</h2>
-          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-            <label className="block text-sm text-slate-700">
+        {/* ── New draft form ── */}
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm md:p-7">
+          <h2 className="text-lg font-semibold text-slate-900">新建草稿</h2>
+          <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2">
+            <label className="block text-sm font-medium text-slate-700">
               版本号
               <input
                 value={version}
                 onChange={(e) => setVersion(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-slate-900 shadow-sm transition focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+                placeholder="例如 1.2.0"
               />
             </label>
-            <label className="block text-sm text-slate-700">
+            <label className="block text-sm font-medium text-slate-700">
               更新策略
               <select
                 value={updatePolicy}
                 onChange={(e) => setUpdatePolicy(e.target.value as "optional" | "forced")}
-                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-slate-900 shadow-sm transition focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20"
               >
                 <option value="optional">可选更新</option>
                 <option value="forced">强制更新</option>
               </select>
             </label>
           </div>
-          <label className="mt-4 block text-sm text-slate-700">
+          <label className="mt-5 block text-sm font-medium text-slate-700">
             Release Notes
             <textarea
               value={releaseNotes}
               onChange={(e) => setReleaseNotes(e.target.value)}
               rows={4}
-              className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+              className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-slate-900 shadow-sm transition focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+              placeholder="描述本次发布的主要内容…"
             />
           </label>
 
-          <div className="mt-6 border-t border-slate-100 pt-4">
-            <p className="text-sm font-medium text-slate-900">启用平台与安装包</p>
-            <div className="mt-3 flex flex-wrap gap-4">
+          {/* ── Platforms ── */}
+          <div className="mt-7 border-t border-slate-100 pt-5">
+            <p className="text-sm font-semibold text-slate-900">启用平台与安装包</p>
+            <div className="mt-3 flex flex-wrap gap-3">
               {PLATFORMS.map((p) => (
-                <label key={p} className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100">
+                <label
+                  key={p}
+                  className={`flex cursor-pointer items-center gap-2.5 rounded-xl border px-4 py-2.5 text-sm font-medium transition ${
+                    enabled[p]
+                      ? "border-sky-200 bg-sky-50 text-sky-800 shadow-sm"
+                      : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100"
+                  }`}
+                >
                   <input
                     type="checkbox"
                     checked={enabled[p]}
                     onChange={() => togglePlatform(p)}
                     className="accent-sky-600"
                   />
-                  {p}平台
+                  <span>{PLATFORM_ICONS[p]}</span>
+                  {PLATFORM_LABELS[p]}
                 </label>
               ))}
             </div>
@@ -318,15 +428,34 @@ export default function ReleasePublishPage() {
           {PLATFORMS.filter((p) => enabled[p]).map((p) => (
             <div
               key={p}
-              className="mt-4 grid grid-cols-1 gap-4 rounded-xl border border-sky-100 bg-sky-50/30 p-4 md:grid-cols-2"
+              className="mt-5 grid grid-cols-1 gap-4 rounded-xl border border-sky-100 bg-gradient-to-r from-sky-50/40 to-indigo-50/20 p-4 md:grid-cols-2"
             >
-              <div className="col-span-full flex items-center justify-between border-b border-sky-100 pb-2">
-                <span className="text-sm font-medium text-sky-900">{p} 平台配置</span>
-                <label className="cursor-pointer rounded-md bg-sky-100 px-3 py-1.5 text-xs font-medium text-sky-700 transition hover:bg-sky-200">
-                  + 上传安装包
+              <div className="col-span-full flex items-center justify-between border-b border-sky-100/80 pb-2.5">
+                <span className="flex items-center gap-2 text-sm font-semibold text-sky-900">
+                  {PLATFORM_ICONS[p]} {PLATFORM_LABELS[p]} 平台配置
+                </span>
+                <label
+                  className={`cursor-pointer rounded-lg px-3.5 py-1.5 text-xs font-semibold transition ${
+                    uploadingPlatform === p
+                      ? "cursor-wait bg-sky-200 text-sky-600"
+                      : "bg-sky-100 text-sky-700 hover:bg-sky-200 hover:shadow-sm"
+                  }`}
+                >
+                  {uploadingPlatform === p ? (
+                    <span className="flex items-center gap-1.5">
+                      <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      上传中…
+                    </span>
+                  ) : (
+                    "+ 上传安装包"
+                  )}
                   <input
                     type="file"
                     className="hidden"
+                    disabled={uploadingPlatform === p}
                     onChange={(e) => {
                       const f = e.target.files?.[0];
                       if (f) void onUploadPackage(p, f);
@@ -335,47 +464,48 @@ export default function ReleasePublishPage() {
                   />
                 </label>
               </div>
-              <label className="block text-xs text-slate-600 md:col-span-2">
+              <label className="block text-xs font-medium text-slate-600 md:col-span-2">
                 下载 URL（上传后自动生成，也可手动填写）
                 <input
                   value={urls[p]}
                   onChange={(e) => setUrls((o) => ({ ...o, [p]: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-900 shadow-sm transition focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20"
                 />
               </label>
-              <label className="block text-xs text-slate-600">
+              <label className="block text-xs font-medium text-slate-600">
                 文件名
                 <input
                   value={names[p]}
                   onChange={(e) => setNames((o) => ({ ...o, [p]: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-900 shadow-sm transition focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20"
                 />
               </label>
-              <label className="block text-xs text-slate-600">
+              <label className="block text-xs font-medium text-slate-600">
                 MD5
                 <input
                   value={md5[p]}
                   onChange={(e) => setMd5((o) => ({ ...o, [p]: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-slate-900 shadow-sm transition focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20"
                 />
               </label>
-              <label className="block text-xs text-slate-600 md:col-span-2">
+              <label className="block text-xs font-medium text-slate-600 md:col-span-2">
                 SHA256
                 <input
                   value={sha[p]}
                   onChange={(e) => setSha((o) => ({ ...o, [p]: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-slate-900 shadow-sm transition focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20"
                 />
               </label>
             </div>
           ))}
 
-          <div className="mt-6 border-t border-slate-100 pt-4 space-y-3">
+          {/* ── Changelog ── */}
+          <div className="mt-7 border-t border-slate-100 pt-5 space-y-3">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-slate-900">Changelog 条目</p>
+              <p className="text-sm font-semibold text-slate-900">Changelog 条目</p>
               <button
                 type="button"
-                className="text-sm text-sky-600 hover:underline"
+                className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-200"
                 onClick={() => addChangelogRow()}
               >
                 + 添加一行
@@ -392,10 +522,10 @@ export default function ReleasePublishPage() {
                       lines.map((l, i) => (i === idx ? { ...l, type: v } : l)),
                     );
                   }}
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20"
                 >
-                  <option value="new">New</option>
-                  <option value="fix">Fix</option>
+                  <option value="new">✨ New</option>
+                  <option value="fix">🔧 Fix</option>
                 </select>
                 <input
                   value={row.text}
@@ -405,12 +535,12 @@ export default function ReleasePublishPage() {
                       lines.map((l, i) => (i === idx ? { ...l, text: v } : l)),
                     );
                   }}
-                  className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/20"
                   placeholder="描述功能更新或修复项"
                 />
                 <button
                   type="button"
-                  className="rounded bg-rose-50 px-3 py-2 text-sm text-rose-600 hover:bg-rose-100"
+                  className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-600 transition hover:bg-rose-100"
                   onClick={() => setChangelogLines((lines) => lines.filter((_, i) => i !== idx))}
                 >
                   删除
@@ -419,87 +549,133 @@ export default function ReleasePublishPage() {
             ))}
           </div>
 
-          <div className="mt-8 flex flex-wrap justify-end gap-2">
+          {/* ── Actions ── */}
+          <div className="mt-8 flex flex-wrap justify-end gap-3">
             <button
               type="button"
-              className="rounded-lg border border-slate-200 bg-white px-6 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+              disabled={creatingDraft}
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-6 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 hover:shadow disabled:cursor-not-allowed disabled:opacity-60"
               onClick={() => void onCreateDraft()}
             >
+              {creatingDraft && <SmallSpinner />}
               创建草稿
             </button>
             <button
               type="button"
-              className="rounded-lg bg-emerald-600 px-6 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-emerald-500 hover:shadow"
+              disabled={creatingPublish}
+              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500 hover:shadow disabled:cursor-not-allowed disabled:opacity-60"
               onClick={() => void onCreateAndPublish()}
             >
+              {creatingPublish && <SmallSpinner />}
               创建并发布
             </button>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
-          <h2 className="text-lg font-medium text-slate-900">发布列表</h2>
+        {/* ── Release list ── */}
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm md:p-7">
+          <h2 className="text-lg font-semibold text-slate-900">发布列表</h2>
           {loading ? (
-            <p className="mt-3 text-sm text-slate-500">加载中…</p>
+            <div className="mt-6 flex justify-center">
+              <svg className="h-6 w-6 animate-spin text-slate-400" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+            </div>
           ) : (
-            <div className="mt-4 overflow-x-auto rounded-lg border border-slate-200">
+            <div className="mt-5 overflow-x-auto rounded-xl border border-slate-200/80">
               <table className="min-w-full text-left text-sm text-slate-700">
-                <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                <thead className="border-b border-slate-100 bg-slate-50/80 text-xs font-semibold uppercase tracking-wide text-slate-500">
                   <tr>
-                    <th className="px-4 py-3 font-medium">版本</th>
-                    <th className="px-4 py-3 font-medium">状态</th>
-                    <th className="px-4 py-3 font-medium">策略</th>
-                    <th className="px-4 py-3 font-medium">发布时间</th>
-                    <th className="px-4 py-3 font-medium">操作</th>
+                    <th className="px-4 py-3.5">版本</th>
+                    <th className="px-4 py-3.5">状态</th>
+                    <th className="px-4 py-3.5">平台</th>
+                    <th className="px-4 py-3.5">策略</th>
+                    <th className="px-4 py-3.5">发布时间</th>
+                    <th className="px-4 py-3.5">操作</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200 bg-white">
+                <tbody className="divide-y divide-slate-100 bg-white">
                   {items.map((it) => (
-                    <tr key={it.id} className="transition hover:bg-slate-50">
-                      <td className="px-4 py-3 font-mono text-xs">{it.version}</td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-                          it.status === 'published' ? 'bg-emerald-100 text-emerald-700' :
-                          it.status === 'archived' ? 'bg-slate-100 text-slate-600' :
-                          'bg-amber-100 text-amber-700'
+                    <tr key={it.id} className="transition-colors hover:bg-slate-50/60">
+                      <td className="px-4 py-3.5 font-mono text-xs font-medium">{it.version}</td>
+                      <td className="px-4 py-3.5">
+                        <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                          it.status === 'published' ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/60' :
+                          it.status === 'archived' ? 'bg-slate-100 text-slate-500 ring-1 ring-slate-200/60' :
+                          'bg-amber-50 text-amber-700 ring-1 ring-amber-200/60'
                         }`}>
+                          <span className={`inline-block h-1.5 w-1.5 rounded-full ${
+                            it.status === 'published' ? 'bg-emerald-500' :
+                            it.status === 'archived' ? 'bg-slate-400' :
+                            'bg-amber-500'
+                          }`} />
                           {it.status === 'published' ? '已发布' : it.status === 'archived' ? '已归档' : '草稿'}
                         </span>
                         {it.id === latestPublishedId ? (
-                          <span className="ml-2 inline-flex rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-700">
-                            最新已发布
+                          <span className="ml-2 inline-flex items-center rounded-full bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700 ring-1 ring-sky-200/60">
+                            最新
                           </span>
                         ) : null}
                       </td>
-                      <td className="px-4 py-3">{it.update_policy === 'forced' ? '强制' : '可选'}</td>
-                      <td className="px-4 py-3 text-xs text-slate-500">
-                        {it.published_at ? new Date(it.published_at).toLocaleString() : "-"}
+                      <td className="px-4 py-3.5">
+                        <div className="flex gap-1">
+                          {(it.enabled_platforms || []).map((p) => (
+                            <span key={p} title={PLATFORM_LABELS[p as Platform]} className="text-base">
+                              {PLATFORM_ICONS[p as Platform] || p}
+                            </span>
+                          ))}
+                        </div>
                       </td>
-                      <td className="px-4 py-3 space-x-2">
-                        {it.status === "draft" ? (
-                          <button
-                            type="button"
-                            className="rounded bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-emerald-500 hover:shadow-sm"
-                            onClick={() => void onPublish(it.id)}
-                          >
-                            发布
-                          </button>
-                        ) : null}
-                        {it.status !== "archived" ? (
-                          <button
-                            type="button"
-                            className="rounded bg-slate-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-slate-500 hover:shadow-sm"
-                            onClick={() => void onArchive(it.id)}
-                          >
-                            归档
-                          </button>
-                        ) : null}
+                      <td className="px-4 py-3.5 text-xs">
+                        {it.update_policy === 'forced' ? (
+                          <span className="rounded-full bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-600 ring-1 ring-rose-200/60">强制</span>
+                        ) : (
+                          <span className="rounded-full bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-500 ring-1 ring-slate-200/60">可选</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3.5 text-xs text-slate-500">
+                        {it.published_at ? new Date(it.published_at).toLocaleString() : "—"}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <div className="flex items-center gap-2">
+                          {it.status === "draft" ? (
+                            <button
+                              type="button"
+                              disabled={busyId === it.id}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+                              onClick={() => void onPublish(it.id)}
+                            >
+                              {busyId === it.id && <SmallSpinner />}
+                              发布
+                            </button>
+                          ) : null}
+                          {it.status !== "archived" ? (
+                            <button
+                              type="button"
+                              disabled={busyId === it.id}
+                              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                              onClick={() => requestArchive(it.id, it.version)}
+                            >
+                              归档
+                            </button>
+                          ) : null}
+                          {it.status === "archived" ? (
+                            <button
+                              type="button"
+                              className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-600 shadow-sm transition hover:bg-rose-100"
+                              onClick={() => requestDelete(it.id, it.version)}
+                            >
+                              删除
+                            </button>
+                          ) : null}
+                        </div>
                       </td>
                     </tr>
                   ))}
                   {items.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                      <td colSpan={6} className="px-4 py-12 text-center text-slate-400">
                         暂无发布记录
                       </td>
                     </tr>
@@ -510,6 +686,29 @@ export default function ReleasePublishPage() {
           )}
         </div>
       </div>
+
+      {/* Confirm dialog */}
+      <ConfirmDialog
+        open={confirmState.open}
+        title={confirmState.title}
+        description={confirmState.description}
+        confirmLabel={confirmState.confirmLabel}
+        cancelLabel="取消"
+        variant={confirmState.variant}
+        loading={confirmLoading}
+        onConfirm={() => void handleConfirm()}
+        onCancel={handleCancelConfirm}
+      />
     </div>
+  );
+}
+
+/* ── Small inline spinner ── */
+function SmallSpinner() {
+  return (
+    <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+    </svg>
   );
 }

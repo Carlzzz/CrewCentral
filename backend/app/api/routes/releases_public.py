@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.db.session import get_db
 from app.schemas.rc import rc_ok
-from app.services.release_registry import asset_to_public, get_latest_published
+from app.services.release_registry import get_aggregated_platform_assets
 from app.services.ua_platform import infer_platform
 
 router = APIRouter(prefix="/public/releases", tags=["releases-public"])
@@ -28,7 +28,7 @@ async def download_context(
     sec_ch_ua_platform: str | None = Header(default=None, alias="Sec-CH-UA-Platform"),
 ) -> dict[str, Any]:
     settings = get_settings()
-    latest = await get_latest_published(db)
+    latest, aggregated_assets = await get_aggregated_platform_assets(db)
     if latest is None:
         log.info("download-context: no published client release")
         return rc_ok(
@@ -49,8 +49,7 @@ async def download_context(
     guess = infer_platform(user_agent, sec_ch_ua_platform)
     recommended = None if guess == "unknown" else guess
 
-    assets = [asset_to_public(a) for a in latest.assets]
-    by_pf = {a["platform"]: a for a in assets}
+    by_pf = {a["platform"]: a for a in aggregated_assets}
 
     primary = None
     if recommended and recommended in by_pf:
@@ -72,7 +71,7 @@ async def download_context(
             "logo_url": logo,
             "recommended_platform": recommended,
             "primary_asset": primary,
-            "all_assets": assets,
+            "all_assets": aggregated_assets,
             "release_notes_excerpt": notes,
             "changelog_entries": changelog,
         }

@@ -333,4 +333,49 @@ async def upload_release_asset(
     )
 
 
+def _extract_uploaded_filename(url: str) -> str | None:
+    """Extract the UUID filename from an upload URL like .../files/abc123.exe."""
+    marker = "/public/releases/files/"
+    idx = url.find(marker)
+    if idx < 0:
+        return None
+    return url[idx + len(marker) :].split("?")[0].split("#")[0]
+
+
+@router.delete("/{release_id}")
+async def delete_release(
+    release_id: str,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_session_permission("releases")),
+) -> dict[str, Any]:
+    r = await db.scalar(
+        select(ClientRelease)
+        .where(ClientRelease.id == release_id)
+        .options(selectinload(ClientRelease.assets))
+    )
+    if r is None:
+        return rc_err("发布不存在")
+    if r.status != "archived":
+        return rc_err("仅可删除已归档的发布记录")
+
+    # Try to clean up uploaded files from disk
+    for asset in (r.assets or []):
+        fname = _extract_uploaded_filename(asset.download_url)
+        if fname:
+            fpath = UPLOAD_DIR / fname
+            try:
+                if fpath.exists() and fpath.is_file():
+                    fpath.unlink()
+                    log.info("deleted uploaded file %s", fpath)
+            except OSError as exc:
+                log.warning("failed to delete uploaded file %s: %s", fpath, exc)
+
+    version = r.version
+    _audit(db, release_id=r.id, action="delete", actor=admin, summary=f"version={version}")
+    await db.delete(r)
+    await db.commit()
+    log.info("client_release deleted id=%s version=%s actor=%s", release_id, version, admin.id)
+    return rc_ok(None, message=f"版本 {version} 已删除")
+
+
 __all__ = ["router"]

@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.schemas.rc import rc_ok
-from app.services.release_registry import asset_to_public, compare_semver, get_latest_published
+from app.services.release_registry import compare_semver, get_aggregated_platform_assets
 
 router = APIRouter(prefix="/releases", tags=["releases-client"])
 log = logging.getLogger(__name__)
@@ -21,7 +21,7 @@ async def latest_release(
     db: AsyncSession = Depends(get_db),
     current_version: str | None = Query(default=None),
 ) -> dict[str, Any]:
-    latest = await get_latest_published(db)
+    latest, aggregated_assets = await get_aggregated_platform_assets(db)
     if latest is None:
         log.info("releases/latest: no published release")
         return rc_ok(
@@ -36,7 +36,6 @@ async def latest_release(
             message="暂无发布",
         )
 
-    assets = [asset_to_public(a) for a in latest.assets]
     notes = (latest.release_notes or "")[:4000]
 
     if not current_version or not current_version.strip():
@@ -46,7 +45,7 @@ async def latest_release(
                 "current_version": current_version,
                 "target_version": latest.version,
                 "update_policy": latest.update_policy,
-                "assets": assets,
+                "assets": aggregated_assets,
                 "release_notes_excerpt": notes,
             }
         )
@@ -59,7 +58,7 @@ async def latest_release(
                 "current_version": cur,
                 "target_version": None,
                 "update_policy": None,
-                "assets": assets,
+                "assets": aggregated_assets,
                 "release_notes_excerpt": notes,
             }
         )
@@ -70,7 +69,8 @@ async def latest_release(
             "current_version": cur,
             "target_version": latest.version,
             "update_policy": latest.update_policy,
-            "assets": assets,
+            "assets": aggregated_assets,
             "release_notes_excerpt": notes,
         }
     )
+

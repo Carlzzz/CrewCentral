@@ -3,7 +3,7 @@
  * Public endpoints use same-origin fetch without credentials; admin uses cookies.
  */
 
-import { apiPrefix, getJson, postJson, type RcResponse } from "./api";
+import { apiPrefix, deleteJson, getJson, postJson, type RcResponse } from "./api";
 
 export type Platform = "windows" | "macos" | "linux";
 
@@ -116,4 +116,8 @@ export async function publishAdminRelease(id: string): Promise<RcResponse<Client
 
 export async function archiveAdminRelease(id: string): Promise<RcResponse<ClientReleaseAdmin>> {
   return postJson(`/admin/releases/${encodeURIComponent(id)}/archive`, {});
+}
+
+export async function deleteAdminRelease(id: string): Promise<RcResponse<unknown>> {
+  return deleteJson(`/admin/releases/${encodeURIComponent(id)}`);
 }
