@@ -332,6 +332,7 @@ export default function ReleasePublishPage() {
   }
 
   function requestRestore(id: string, ver: string) {
+    console.log("requestRestore invoked for release id:", id, "version:", ver);
     setConfirmState({
       open: true,
       title: "恢复确认",

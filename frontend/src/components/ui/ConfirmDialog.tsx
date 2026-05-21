@@ -76,6 +76,7 @@ export default function ConfirmDialog({
   onCancel,
   loading = false,
 }: ConfirmDialogProps) {
+  console.log("ConfirmDialog render state: open =", open, "title =", title);
   const cancelRef = useRef<HTMLButtonElement>(null);
 
   /* -- trap focus on open ------------------------------------------ */
