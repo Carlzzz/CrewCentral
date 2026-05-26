@@ -18,7 +18,6 @@ export default function ModelPermissionPage() {
   const [editingUser, setEditingUser] = useState<UserModelPermissionItem | null>(null);
   const [isRestricted, setIsRestricted] = useState(false);
   const [selectedModels, setSelectedModels] = useState<string[]>([]);
-  const [customModelInput, setCustomModelInput] = useState("");
   const [saving, setSaving] = useState(false);
 
   async function loadData() {
@@ -65,7 +64,6 @@ export default function ModelPermissionPage() {
     const hasLimit = user.allowed_models !== null;
     setIsRestricted(hasLimit);
     setSelectedModels(user.allowed_models || []);
-    setCustomModelInput("");
     setMessage(null);
   }
 
@@ -73,17 +71,6 @@ export default function ModelPermissionPage() {
     setSelectedModels((prev) =>
       prev.includes(modelId) ? prev.filter((m) => m !== modelId) : [...prev, modelId]
     );
-  }
-
-  function handleAddCustomModel() {
-    const trimmed = customModelInput.trim();
-    if (!trimmed) return;
-    if (selectedModels.includes(trimmed)) {
-      setCustomModelInput("");
-      return;
-    }
-    setSelectedModels((prev) => [...prev, trimmed]);
-    setCustomModelInput("");
   }
 
   function handleRemoveModel(modelId: string) {
@@ -312,30 +299,6 @@ export default function ModelPermissionPage() {
                           })}
                         </div>
                       )}
-                    </div>
-
-                    {/* Custom model input */}
-                    <div className="space-y-2">
-                      <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
-                        手动添加自定义模型 ID
-                      </label>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={customModelInput}
-                          onChange={(e) => setCustomModelInput(e.target.value)}
-                          onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddCustomModel())}
-                          placeholder="例如: gpt-4o 或 azure|gpt-4"
-                          className="flex-1 rounded-lg border border-slate-200 px-3 py-1.5 text-xs focus:border-sky-500 focus:outline-none"
-                        />
-                        <button
-                          type="button"
-                          onClick={handleAddCustomModel}
-                          className="rounded-lg bg-slate-800 text-white px-3 py-1.5 text-xs font-semibold hover:bg-slate-700 transition"
-                        >
-                          添加
-                        </button>
-                      </div>
                     </div>
 
                     {/* Selected models badges list */}

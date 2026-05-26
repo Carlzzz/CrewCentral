@@ -60,7 +60,8 @@ async def introspect_token(
         
         from app.auth.model_permission_service import get_user_model_permissions
         allowed_models = await get_user_model_permissions(db, u.id)
-        
+        log.debug("introspect user=%s allowed_models=%s", u.id, allowed_models)
+
         return rc_ok({
             "user_id": u.id,
             "name": u.display_name or u.email,

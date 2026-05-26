@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(uv run *)",
-      "PowerShell($env:UV_HTTP_TIMEOUT = \"120\"; Set-Location \"c:\\\\Users\\\\zhaocao\\\\Documents\\\\GitHub\\\\CrewCentral\\\\backend\"; uv run alembic revision --autogenerate -m \"add user_roles and user_model_permissions tables\")"
+      "PowerShell($env:UV_HTTP_TIMEOUT = \"120\"; Set-Location \"c:\\\\Users\\\\zhaocao\\\\Documents\\\\GitHub\\\\CrewCentral\\\\backend\"; uv run alembic revision --autogenerate -m \"add user_roles and user_model_permissions tables\")",
+      "Read(//c/Users/zhaocao/Documents/GitHub/CrewProxy/**)"
     ]
   }
 }

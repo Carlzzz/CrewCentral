@@ -25,6 +25,7 @@ async def set_user_model_permissions(db: AsyncSession, user_id: str, allowed_mod
     if allowed_models is None:
         if existing:
             await db.delete(existing)
+            await db.flush()
     else:
         clean_models = [m.strip() for m in allowed_models if m.strip()]
         models_str = ",".join(clean_models)
@@ -32,4 +33,5 @@ async def set_user_model_permissions(db: AsyncSession, user_id: str, allowed_mod
             existing.allowed_models = models_str
         else:
             db.add(UserModelPermission(user_id=user_id, allowed_models=models_str))
+        await db.flush()
 
