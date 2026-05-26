@@ -5,7 +5,6 @@ import {
   deleteAdminUser,
   listAdminUsers,
   patchAdminUser,
-  patchAdminUserRole,
   type AdminUserItem,
 } from "../../lib/user-api";
 
@@ -44,7 +43,7 @@ const PERM_LABELS: Record<string, string> = {
 const ROLE_PERMS: Record<string, string[]> = {
   super_admin: ["home", "download", "docs", "skills", "skills.assignments", "devices", "releases", "docs.manage", "users.manage", "usage", "models.manage"],
   skill_admin: ["home", "download", "docs", "skills", "skills.assignments"],
-  ops_admin: ["home", "download", "docs", "devices", "releases", "usage", "models.manage"],
+  ops_admin: ["home", "download", "docs", "devices", "releases", "usage"],
   docs_admin: ["home", "download", "docs", "docs.manage"],
   viewer: ["home", "download", "docs"],
 };
@@ -71,13 +70,6 @@ export default function UserManagePage() {
   function flash(type: "success" | "error", text: string) {
     setMessage({ type, text });
     setTimeout(() => setMessage(null), 4000);
-  }
-
-  async function onChangeRole(u: AdminUserItem, newRole: string) {
-    if (newRole === u.role) return;
-    const res = await patchAdminUserRole(u.id, newRole);
-    flash(res.rc === 0 ? "success" : "error", res.message || (res.rc === 0 ? "角色已更新" : "更新失败"));
-    if (res.rc === 0) await load();
   }
 
   async function onCreateUser(e: React.FormEvent) {
@@ -205,9 +197,9 @@ export default function UserManagePage() {
                     <div className="text-xs text-slate-400 mt-0.5">{u.email}</div>
                   </td>
                   <td className="px-4 py-3.5">
-                    <select className={`rounded-full px-2.5 py-1 text-xs font-semibold border appearance-none cursor-pointer ${ROLE_COLORS[u.role] || ROLE_COLORS.viewer}`} value={u.role} onChange={(e) => void onChangeRole(u, e.target.value)} aria-label={`${u.email} 角色`}>
-                      {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
-                    </select>
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold border ${ROLE_COLORS[u.role] || ROLE_COLORS.viewer}`}>
+                      {ROLE_LABELS[u.role] || u.role}
+                    </span>
                   </td>
                   <td className="px-4 py-3.5 text-xs text-slate-500 hidden lg:table-cell">
                     {u.created_at ? new Date(u.created_at).toLocaleDateString("zh-CN") : "-"}

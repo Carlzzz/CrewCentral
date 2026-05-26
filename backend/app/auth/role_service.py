@@ -10,7 +10,7 @@ from app.models.user_role import UserRole
 ROLE_MENUS: dict[str, list[str]] = {
     "super_admin": ["home", "download", "docs", "skills", "skills.assignments", "devices", "releases", "docs.manage", "users.manage", "usage", "models.manage"],
     "skill_admin": ["home", "download", "docs", "skills", "skills.assignments"],
-    "ops_admin": ["home", "download", "docs", "devices", "releases", "usage", "models.manage"],
+    "ops_admin": ["home", "download", "docs", "devices", "releases", "usage"],
     "docs_admin": ["home", "download", "docs", "docs.manage"],
     "viewer": ["home", "download", "docs"],
 }
