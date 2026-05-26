@@ -21,6 +21,7 @@ import ProfilePage from "./pages/ProfilePage";
 import ChangePasswordPage from "./pages/ChangePasswordPage";
 import UsageDashboardPage from "./pages/admin/UsageDashboardPage";
 import UserManagePage from "./pages/admin/UserManagePage";
+import ModelPermissionPage from "./pages/admin/ModelPermissionPage";
 
 export default function App() {
   return (
@@ -48,6 +49,7 @@ export default function App() {
         <Route path="releases" element={<ReleasePublishPage />} />
         <Route path="docs" element={<DocsEditorPage />} />
         <Route path="users" element={<UserManagePage />} />
+        <Route path="models" element={<ModelPermissionPage />} />
         <Route path="usage" element={<UsageDashboardPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/login" replace />} />

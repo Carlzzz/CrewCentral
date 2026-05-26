@@ -70,7 +70,7 @@ async def usage_overview(
                 },
             },
             "by_user": {
-                "terms": {"field": "username.keyword", "size": 50},
+                "terms": {"field": "username.keyword", "size": 10000},
                 "aggs": {
                     "input": {"sum": {"field": "input_token"}},
                     "output": {"sum": {"field": "output_token"}},

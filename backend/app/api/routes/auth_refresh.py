@@ -57,9 +57,14 @@ async def introspect_token(
         u = await db.scalar(select(User).where(User.id == sub))
         if u is None:
             raise HTTPException(status_code=401, detail="user not found")
+        
+        from app.auth.model_permission_service import get_user_model_permissions
+        allowed_models = await get_user_model_permissions(db, u.id)
+        
         return rc_ok({
             "user_id": u.id,
             "name": u.display_name or u.email,
+            "allowed_models": allowed_models,
         })
     except JWTError:
         raise HTTPException(status_code=401, detail="invalid token") from None

@@ -27,12 +27,14 @@ function BarChart({
   valueKeys,
   valueLabels,
   colors,
+  maxHeight = "220px",
 }: {
   data: Record<string, unknown>[];
   labelKey: string;
   valueKeys: string[];
   valueLabels?: string[];
   colors: string[];
+  maxHeight?: string;
 }) {
   const maxVal = useMemo(() => {
     let m = 0;
@@ -60,40 +62,42 @@ function BarChart({
           ))}
         </div>
       )}
-      {data.map((row, i) => {
-        const label = String(row[labelKey] ?? "");
-        const total = valueKeys.reduce((s, k) => s + ((row[k] as number) || 0), 0);
-        const calls = (row as Record<string, unknown>).calls as number | undefined;
-        return (
-          <div key={i} className="group flex items-center gap-2 text-[11px]">
-            <span className="w-20 shrink-0 truncate text-right text-slate-500" title={label}>
-              {label}
-            </span>
-            <div className="relative flex h-5 flex-1 overflow-hidden rounded-full bg-slate-100/90">
-              {valueKeys.map((k, ki) => {
-                const val = (row[k] as number) || 0;
-                const pct = (val / maxVal) * 100;
-                return (
-                  <div
-                    key={k}
-                    className="h-full transition-all duration-300"
-                    style={{ width: `${pct}%`, backgroundColor: colors[ki] }}
-                    title={`${valueLabels?.[ki] ?? k}: ${fmtNum(val)}`}
-                  />
-                );
-              })}
-            </div>
-            <span className="w-14 shrink-0 text-right tabular-nums text-slate-600">
-              {fmtNum(total)}
-            </span>
-            {calls !== undefined && (
-              <span className="w-10 shrink-0 text-right tabular-nums text-slate-400 text-[10px]">
-                {fmtNum(calls)}次
+      <div className="space-y-2 overflow-y-auto pr-1 scrollbar-thin" style={{ maxHeight }}>
+        {data.map((row, i) => {
+          const label = String(row[labelKey] ?? "");
+          const total = valueKeys.reduce((s, k) => s + ((row[k] as number) || 0), 0);
+          const calls = (row as Record<string, unknown>).calls as number | undefined;
+          return (
+            <div key={i} className="group flex items-center gap-2 text-[11px]">
+              <span className="w-20 shrink-0 truncate text-right text-slate-500" title={label}>
+                {label}
               </span>
-            )}
-          </div>
-        );
-      })}
+              <div className="relative flex h-5 flex-1 overflow-hidden rounded-full bg-slate-100/90">
+                {valueKeys.map((k, ki) => {
+                  const val = (row[k] as number) || 0;
+                  const pct = (val / maxVal) * 100;
+                  return (
+                    <div
+                      key={k}
+                      className="h-full transition-all duration-300"
+                      style={{ width: `${pct}%`, backgroundColor: colors[ki] }}
+                      title={`${valueLabels?.[ki] ?? k}: ${fmtNum(val)}`}
+                    />
+                  );
+                })}
+              </div>
+              <span className="w-14 shrink-0 text-right tabular-nums text-slate-600">
+                {fmtNum(total)}
+              </span>
+              {calls !== undefined && (
+                <span className="w-10 shrink-0 text-right tabular-nums text-slate-400 text-[10px]">
+                  {fmtNum(calls)}次
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -112,13 +116,18 @@ function TrendChart({ data, enlarged = false }: { data: DayBucket[]; enlarged?: 
     );
   }
 
-  const W = enlarged ? 720 : 480;
-  const H = enlarged ? 320 : 160;
+  const n = data.length;
   const padL = enlarged ? 56 : 44;
   const padR = enlarged ? 52 : 40;
   const padT = enlarged ? 28 : 20;
   const padB = enlarged ? 36 : 24;
-  const iw = W - padL - padR;
+
+  // Dynamic width: stretch chart width when number of days increases (e.g. 14d, 30d)
+  const pointSpacing = enlarged ? 28 : 20;
+  const minIw = n * pointSpacing;
+  const iw = Math.max(minIw, enlarged ? 612 : 396);
+  const W = iw + padL + padR;
+  const H = enlarged ? 320 : 160;
   const ih = H - padT - padB;
 
   const totals = data.map((d) => d.input_tokens + d.output_tokens);
@@ -129,7 +138,6 @@ function TrendChart({ data, enlarged = false }: { data: DayBucket[]; enlarged?: 
   const tokenTicks = [0, 0.25, 0.5, 0.75, 1].map((r) => Math.round(maxToken * r));
   const callTicks = [0, 0.25, 0.5, 0.75, 1].map((r) => Math.round(maxCalls * r));
 
-  const n = data.length;
   const xAt = (i: number) => padL + (n <= 1 ? iw / 2 : (i / (n - 1)) * iw);
 
   const tokenPoints = data.map((_, i) => {
@@ -164,99 +172,100 @@ function TrendChart({ data, enlarged = false }: { data: DayBucket[]; enlarged?: 
   };
 
   return (
-    <svg
-      ref={svgRef}
-      viewBox={`0 0 ${W} ${H}`}
-      className={`w-full max-w-full ${enlarged ? "h-[320px]" : "h-[160px]"}`}
-      preserveAspectRatio="xMidYMid meet"
-      onMouseMove={handleMouseMove}
-      onMouseLeave={() => setHoverIdx(null)}
-    >
-      <defs>
-        <linearGradient id={`usageArea${enlarged ? "L" : "S"}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.30" />
-          <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.02" />
-        </linearGradient>
-      </defs>
+    <div className="overflow-x-auto w-full scrollbar-thin select-none">
+      <svg
+        ref={svgRef}
+        viewBox={`0 0 ${W} ${H}`}
+        style={{ width: `${W}px`, height: `${H}px`, minWidth: "100%" }}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={() => setHoverIdx(null)}
+      >
+        <defs>
+          <linearGradient id={`usageArea${enlarged ? "L" : "S"}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.30" />
+            <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.02" />
+          </linearGradient>
+        </defs>
 
-      {/* grid lines */}
-      {tokenTicks.map((_, ti) => {
-        const y = padT + ih - (ti / 4) * ih;
-        return <line key={`g${ti}`} x1={padL} y1={y} x2={padL + iw} y2={y} stroke="#e2e8f0" strokeWidth="0.5" strokeDasharray="3 3" />;
-      })}
+        {/* grid lines */}
+        {tokenTicks.map((_, ti) => {
+          const y = padT + ih - (ti / 4) * ih;
+          return <line key={`g${ti}`} x1={padL} y1={y} x2={padL + iw} y2={y} stroke="#e2e8f0" strokeWidth="0.5" strokeDasharray="3 3" />;
+        })}
 
-      {/* left Y axis labels (tokens) */}
-      {tokenTicks.map((v, ti) => {
-        const y = padT + ih - (ti / 4) * ih;
-        return (
-          <text key={`yt${ti}`} x={padL - 4} y={y + 3} textAnchor="end" className="fill-sky-500" style={{ fontSize: axisFont }}>
-            {fmtNum(v)}
-          </text>
-        );
-      })}
+        {/* left Y axis labels (tokens) */}
+        {tokenTicks.map((v, ti) => {
+          const y = padT + ih - (ti / 4) * ih;
+          return (
+            <text key={`yt${ti}`} x={padL - 4} y={y + 3} textAnchor="end" className="fill-sky-500" style={{ fontSize: axisFont }}>
+              {fmtNum(v)}
+            </text>
+          );
+        })}
 
-      {/* right Y axis labels (calls) */}
-      {callTicks.map((v, ti) => {
-        const y = padT + ih - (ti / 4) * ih;
-        return (
-          <text key={`yc${ti}`} x={padL + iw + 4} y={y + 3} textAnchor="start" className="fill-amber-500" style={{ fontSize: axisFont }}>
-            {fmtNum(v)}
-          </text>
-        );
-      })}
+        {/* right Y axis labels (calls) */}
+        {callTicks.map((v, ti) => {
+          const y = padT + ih - (ti / 4) * ih;
+          return (
+            <text key={`yc${ti}`} x={padL + iw + 4} y={y + 3} textAnchor="start" className="fill-amber-500" style={{ fontSize: axisFont }}>
+              {fmtNum(v)}
+            </text>
+          );
+        })}
 
-      {/* area + lines */}
-      <path d={areaD} fill={`url(#usageArea${enlarged ? "L" : "S"})`} />
-      <polyline points={tokenPoints.join(" ")} fill="none" stroke="#0ea5e9" strokeWidth={enlarged ? "2.5" : "2"} strokeLinecap="round" strokeLinejoin="round" />
-      <polyline points={callPoints.join(" ")} fill="none" stroke="#f59e0b" strokeWidth={enlarged ? "2" : "1.5"} strokeDasharray="4 3" strokeLinecap="round" />
+        {/* area + lines */}
+        <path d={areaD} fill={`url(#usageArea${enlarged ? "L" : "S"})`} />
+        <polyline points={tokenPoints.join(" ")} fill="none" stroke="#0ea5e9" strokeWidth={enlarged ? "2.5" : "2"} strokeLinecap="round" strokeLinejoin="round" />
+        <polyline points={callPoints.join(" ")} fill="none" stroke="#f59e0b" strokeWidth={enlarged ? "2" : "1.5"} strokeDasharray="4 3" strokeLinecap="round" />
 
-      {/* data point dots */}
-      {data.map((_, i) => {
-        const x = xAt(i);
-        const yt = padT + ih - (totals[i] / maxToken) * ih;
-        const yc = padT + ih - (data[i].calls / maxCalls) * ih;
-        const show = hoverIdx === i || (n <= 14 && enlarged);
-        return show ? (
-          <g key={`dot${i}`}>
-            <circle cx={x} cy={yt} r={enlarged ? 3.5 : 2.5} fill="#0ea5e9" stroke="white" strokeWidth="1.5" />
-            <circle cx={x} cy={yc} r={enlarged ? 3 : 2} fill="#f59e0b" stroke="white" strokeWidth="1.5" />
-          </g>
-        ) : null;
-      })}
+        {/* data point dots */}
+        {data.map((_, i) => {
+          const x = xAt(i);
+          const yt = padT + ih - (totals[i] / maxToken) * ih;
+          const yc = padT + ih - (data[i].calls / maxCalls) * ih;
+          const show = hoverIdx === i || (n <= 14 && enlarged);
+          return show ? (
+            <g key={`dot${i}`}>
+              <circle cx={x} cy={yt} r={enlarged ? 3.5 : 2.5} fill="#0ea5e9" stroke="white" strokeWidth="1.5" />
+              <circle cx={x} cy={yc} r={enlarged ? 3 : 2} fill="#f59e0b" stroke="white" strokeWidth="1.5" />
+            </g>
+          ) : null;
+        })}
 
-      {/* hover tooltip */}
-      {hoverIdx !== null && (
-        <>
-          <line x1={xAt(hoverIdx)} y1={padT} x2={xAt(hoverIdx)} y2={padT + ih} stroke="#94a3b8" strokeWidth="0.5" strokeDasharray="2 2" />
-          <rect x={xAt(hoverIdx) - (enlarged ? 70 : 55)} y={padT - (enlarged ? 6 : 2)} width={enlarged ? 140 : 110} height={enlarged ? 48 : 38} rx="6" fill="white" fillOpacity="0.95" stroke="#e2e8f0" strokeWidth="0.5" />
-          <text x={xAt(hoverIdx)} y={padT + (enlarged ? 10 : 10)} textAnchor="middle" className="fill-slate-600 font-medium" style={{ fontSize: enlarged ? "11px" : "9px" }}>
-            {data[hoverIdx].date.slice(5)}
-          </text>
-          <text x={xAt(hoverIdx)} y={padT + (enlarged ? 24 : 21)} textAnchor="middle" className="fill-sky-600" style={{ fontSize: enlarged ? "10px" : "8px" }}>
-            Tokens: {fmtNum(totals[hoverIdx])}
-          </text>
-          <text x={xAt(hoverIdx)} y={padT + (enlarged ? 37 : 31)} textAnchor="middle" className="fill-amber-600" style={{ fontSize: enlarged ? "10px" : "8px" }}>
-            调用: {data[hoverIdx].calls} 次
-          </text>
-        </>
-      )}
+        {/* hover tooltip */}
+        {hoverIdx !== null && (
+          <>
+            <line x1={xAt(hoverIdx)} y1={padT} x2={xAt(hoverIdx)} y2={padT + ih} stroke="#94a3b8" strokeWidth="0.5" strokeDasharray="2 2" />
+            <rect x={xAt(hoverIdx) - (enlarged ? 70 : 55)} y={padT - (enlarged ? 6 : 2)} width={enlarged ? 140 : 110} height={enlarged ? 48 : 38} rx="6" fill="white" fillOpacity="0.95" stroke="#e2e8f0" strokeWidth="0.5" />
+            <text x={xAt(hoverIdx)} y={padT + (enlarged ? 10 : 10)} textAnchor="middle" className="fill-slate-600 font-medium" style={{ fontSize: enlarged ? "11px" : "9px" }}>
+              {data[hoverIdx].date.slice(5)}
+            </text>
+            <text x={xAt(hoverIdx)} y={padT + (enlarged ? 24 : 21)} textAnchor="middle" className="fill-sky-600" style={{ fontSize: enlarged ? "10px" : "8px" }}>
+              Tokens: {fmtNum(totals[hoverIdx])}
+            </text>
+            <text x={xAt(hoverIdx)} y={padT + (enlarged ? 37 : 31)} textAnchor="middle" className="fill-amber-600" style={{ fontSize: enlarged ? "10px" : "8px" }}>
+              调用: {data[hoverIdx].calls} 次
+            </text>
+          </>
+        )}
 
-      {/* X axis labels */}
-      {data.map((d, i) => {
-        if (i % labelEvery !== 0 && i !== n - 1) return null;
-        return (
-          <text key={d.date + i} x={xAt(i)} y={H - (enlarged ? 8 : 4)} textAnchor="middle" className="fill-slate-400" style={{ fontSize }}>
-            {d.date.slice(5)}
-          </text>
-        );
-      })}
+        {/* X axis labels */}
+        {data.map((d, i) => {
+          if (i % labelEvery !== 0 && i !== n - 1) return null;
+          return (
+            <text key={d.date + i} x={xAt(i)} y={H - (enlarged ? 8 : 4)} textAnchor="middle" className="fill-slate-400" style={{ fontSize }}>
+              {d.date.slice(5)}
+            </text>
+          );
+        })}
 
-      {/* legend */}
-      <circle cx={padL} cy={padT - 8} r="4" fill="#0ea5e9" />
-      <text x={padL + 8} y={padT - 5} className="fill-sky-600" style={{ fontSize }}>Tokens</text>
-      <circle cx={padL + (enlarged ? 70 : 56)} cy={padT - 8} r="4" fill="#f59e0b" />
-      <text x={padL + (enlarged ? 78 : 64)} y={padT - 5} className="fill-amber-600" style={{ fontSize }}>调用次数</text>
-    </svg>
+        {/* legend */}
+        <circle cx={padL} cy={padT - 8} r="4" fill="#0ea5e9" />
+        <text x={padL + 8} y={padT - 5} className="fill-sky-600" style={{ fontSize }}>Tokens</text>
+        <circle cx={padL + (enlarged ? 70 : 56)} cy={padT - 8} r="4" fill="#f59e0b" />
+        <text x={padL + (enlarged ? 78 : 64)} y={padT - 5} className="fill-amber-600" style={{ fontSize }}>调用次数</text>
+      </svg>
+    </div>
   );
 }
 
@@ -497,7 +506,8 @@ export default function UsageDashboardPage() {
                 labelKey="model"
                 valueKeys={["input_tokens", "output_tokens"]}
                 valueLabels={["输入", "输出"]}
-                colors={["#8b5cf6", "#c4b5fd"]}
+                colors={["#4f46e5", "#f97316"]}
+                maxHeight="240px"
               />
             </div>
             <div
@@ -515,7 +525,8 @@ export default function UsageDashboardPage() {
                 labelKey="username"
                 valueKeys={["input_tokens", "output_tokens"]}
                 valueLabels={["输入", "输出"]}
-                colors={["#34d399", "#6ee7b7"]}
+                colors={["#4f46e5", "#f97316"]}
+                maxHeight="240px"
               />
             </div>
           </div>
@@ -525,24 +536,26 @@ export default function UsageDashboardPage() {
             <TrendChart data={trend} enlarged />
           </ChartModal>
           <ChartModal open={modalChart === "model"} onClose={() => setModalChart(null)} title="按模型分布（放大）">
-            <div className="max-h-[60vh] overflow-y-auto">
+            <div className="max-h-[70vh] overflow-y-auto">
               <BarChart
                 data={overview.by_model}
                 labelKey="model"
                 valueKeys={["input_tokens", "output_tokens"]}
                 valueLabels={["输入", "输出"]}
-                colors={["#8b5cf6", "#c4b5fd"]}
+                colors={["#4f46e5", "#f97316"]}
+                maxHeight="60vh"
               />
             </div>
           </ChartModal>
           <ChartModal open={modalChart === "user"} onClose={() => setModalChart(null)} title="按用户分布（放大）">
-            <div className="max-h-[60vh] overflow-y-auto">
+            <div className="max-h-[70vh] overflow-y-auto">
               <BarChart
                 data={overview.by_user}
                 labelKey="username"
                 valueKeys={["input_tokens", "output_tokens"]}
                 valueLabels={["输入", "输出"]}
-                colors={["#34d399", "#6ee7b7"]}
+                colors={["#4f46e5", "#f97316"]}
+                maxHeight="60vh"
               />
             </div>
           </ChartModal>

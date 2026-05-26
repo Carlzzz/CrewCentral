@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     es_node: str = ""
     es_index: str = "woicrew-usage"
 
+    # CrewProxy communication
+    crew_proxy_url: str = "http://localhost:3456"
+    crew_proxy_api_key: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:
