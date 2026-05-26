@@ -213,36 +213,39 @@ export default function UserManagePage() {
             </tbody>
           </table>
         </div>
-        {/* Edit user panel */}
+        {/* Edit user modal */}
         {editingUser && (
-          <div className="rounded-xl border border-sky-200 bg-white p-5 shadow-sm space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-800">编辑用户：{editingUser.email}</h3>
-              <button type="button" onClick={() => setEditingUser(null)} className="text-slate-400 hover:text-slate-600 text-lg leading-none">&times;</button>
-            </div>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-500">邮箱</label>
-                <input className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-sky-300 focus:ring-1 focus:ring-sky-200 outline-none" value={editForm.email} onChange={(e) => setEditForm((v) => ({ ...v, email: e.target.value }))} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/40" onClick={() => setEditingUser(null)} />
+            <div className="relative w-full max-w-lg rounded-xl bg-white p-6 shadow-xl space-y-5 mx-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-bold text-slate-900">编辑用户</h3>
+                <button type="button" onClick={() => setEditingUser(null)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button>
               </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-500">昵称</label>
-                <input className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-sky-300 focus:ring-1 focus:ring-sky-200 outline-none" value={editForm.display_name} onChange={(e) => setEditForm((v) => ({ ...v, display_name: e.target.value }))} placeholder="显示名称" />
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate-500">邮箱</label>
+                  <input className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-sky-300 focus:ring-1 focus:ring-sky-200 outline-none" value={editForm.email} onChange={(e) => setEditForm((v) => ({ ...v, email: e.target.value }))} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate-500">昵称</label>
+                  <input className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-sky-300 focus:ring-1 focus:ring-sky-200 outline-none" value={editForm.display_name} onChange={(e) => setEditForm((v) => ({ ...v, display_name: e.target.value }))} placeholder="显示名称" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate-500">新密码</label>
+                  <input className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-sky-300 focus:ring-1 focus:ring-sky-200 outline-none" type="password" value={editForm.password} onChange={(e) => setEditForm((v) => ({ ...v, password: e.target.value }))} placeholder="留空不修改" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate-500">角色</label>
+                  <select className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-sky-300 focus:ring-1 focus:ring-sky-200 outline-none" value={editForm.role} onChange={(e) => setEditForm((v) => ({ ...v, role: e.target.value }))} aria-label="编辑用户角色">
+                    {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+                  </select>
+                </div>
               </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-500">新密码</label>
-                <input className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-sky-300 focus:ring-1 focus:ring-sky-200 outline-none" type="password" value={editForm.password} onChange={(e) => setEditForm((v) => ({ ...v, password: e.target.value }))} placeholder="留空不修改" />
+              <div className="flex gap-2 pt-2 border-t border-slate-100">
+                <button type="button" onClick={() => void saveEdit()} className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 transition shadow-sm">保存修改</button>
+                <button type="button" onClick={() => setEditingUser(null)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition">取消</button>
               </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-slate-500">角色</label>
-                <select className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-sky-300 focus:ring-1 focus:ring-sky-200 outline-none" value={editForm.role} onChange={(e) => setEditForm((v) => ({ ...v, role: e.target.value }))} aria-label="编辑用户角色">
-                  {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
-                </select>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <button type="button" onClick={() => void saveEdit()} className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 transition shadow-sm">保存修改</button>
-              <button type="button" onClick={() => setEditingUser(null)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition">取消</button>
             </div>
           </div>
         )}
