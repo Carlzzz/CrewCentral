@@ -10,7 +10,7 @@ from app.models.skill_version import SkillVersion
 from app.models.refresh_token import RefreshToken
 from app.models.session import WebSession
 from app.models.user import User
-from app.models.user_model_permission import UserModelPermission
+from app.models.role_model_permission import RoleModelPermission
 from app.models.user_role import UserRole
 
 __all__ = [
@@ -19,7 +19,7 @@ __all__ = [
     "ClientReleaseAsset",
     "ClientReleaseAudit",
     "User",
-    "UserModelPermission",
+    "RoleModelPermission",
     "UserRole",
     "AuthorizationRequest",
     "WebSession",

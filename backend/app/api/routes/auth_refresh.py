@@ -58,9 +58,11 @@ async def introspect_token(
         if u is None:
             raise HTTPException(status_code=401, detail="user not found")
         
-        from app.auth.model_permission_service import get_user_model_permissions
-        allowed_models = await get_user_model_permissions(db, u.id)
-        log.debug("introspect user=%s allowed_models=%s", u.id, allowed_models)
+        from app.auth.role_service import get_user_role
+        from app.auth.role_model_permission_service import get_role_model_permissions
+        role = await get_user_role(db, user_id=u.id, is_admin=u.is_admin)
+        allowed_models = await get_role_model_permissions(db, role)
+        log.debug("introspect user=%s role=%s allowed_models=%s", u.id, role, allowed_models)
 
         return rc_ok({
             "user_id": u.id,

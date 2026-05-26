@@ -3,10 +3,14 @@ from __future__ import annotations
 import httpx
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_session_permission
+from app.auth.role_model_permission_service import (
+    get_role_model_permissions,
+    set_role_model_permissions,
+)
+from app.auth.role_service import ROLE_MENUS
 from app.core.config import get_settings
 from app.db.session import get_db
 from app.models.user import User
@@ -15,7 +19,7 @@ from app.schemas.rc import rc_err, rc_ok
 router = APIRouter(prefix="/admin/models", tags=["models-admin"])
 
 
-class SetPermissionsBody(BaseModel):
+class SetRolePermissionsBody(BaseModel):
     allowed_models: list[str] | None = Field(default=None)
 
 
@@ -33,48 +37,37 @@ async def list_available_models(
         async with httpx.AsyncClient() as client:
             resp = await client.get(url, headers=headers, timeout=5.0)
             if resp.status_code == 200:
-                # Return the list of models returned by the proxy
                 return rc_ok(resp.json())
             return rc_err(f"无法从网关获取模型列表: 状态码 {resp.status_code}")
     except Exception as e:
         return rc_err(f"无法从网关获取模型列表: {str(e)}")
 
 
-@router.get("/users")
-async def list_user_model_permissions(
+@router.get("/roles")
+async def list_role_model_permissions(
     db: AsyncSession = Depends(get_db),
     _admin: User = Depends(require_session_permission("models.manage")),
 ) -> dict:
-    """获取所有用户及其关联的模型权限"""
-    from app.auth.model_permission_service import get_user_model_permissions
-
-    rows = await db.scalars(select(User).order_by(User.created_at.desc()))
+    """获取所有角色及其模型权限配置"""
     items = []
-    for u in rows.all():
-        allowed_models = await get_user_model_permissions(db, u.id)
-        items.append({
-            "id": u.id,
-            "email": u.email,
-            "display_name": u.display_name,
-            "allowed_models": allowed_models,
-        })
+    for role in ROLE_MENUS:
+        allowed = await get_role_model_permissions(db, role)
+        items.append({"role": role, "allowed_models": allowed})
     return rc_ok({"items": items})
 
 
-@router.post("/users/{user_id}")
-async def set_user_permissions_route(
-    user_id: str,
-    body: SetPermissionsBody,
+@router.post("/roles/{role}")
+async def set_role_permissions_route(
+    role: str,
+    body: SetRolePermissionsBody,
     db: AsyncSession = Depends(get_db),
     _admin: User = Depends(require_session_permission("models.manage")),
 ) -> dict:
-    """设置指定用户的模型权限列表。传入 null 表示允许全部。"""
-    u = await db.scalar(select(User).where(User.id == user_id))
-    if u is None:
-        return rc_err("用户不存在")
-
-    from app.auth.model_permission_service import set_user_model_permissions
-
-    await set_user_model_permissions(db, user_id, body.allowed_models)
+    """设置指定角色的模型权限。传入 null 表示无限制。不允许修改 super_admin。"""
+    if role not in ROLE_MENUS:
+        return rc_err("无效的角色")
+    if role == "super_admin":
+        return rc_err("super_admin 始终无限制，不可修改")
+    await set_role_model_permissions(db, role, body.allowed_models)
     await db.commit()
     return rc_ok(message="权限更新成功")
