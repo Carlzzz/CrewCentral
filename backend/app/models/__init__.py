@@ -10,6 +10,8 @@ from app.models.skill_version import SkillVersion
 from app.models.refresh_token import RefreshToken
 from app.models.session import WebSession
 from app.models.user import User
+from app.models.user_model_permission import UserModelPermission
+from app.models.user_role import UserRole
 
 __all__ = [
     "DocPage",
@@ -17,6 +19,8 @@ __all__ = [
     "ClientReleaseAsset",
     "ClientReleaseAudit",
     "User",
+    "UserModelPermission",
+    "UserRole",
     "AuthorizationRequest",
     "WebSession",
     "RefreshToken",

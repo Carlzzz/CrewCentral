@@ -30,30 +30,6 @@ async def get_current_user_id(
         raise HTTPException(status_code=401, detail="invalid token") from None
 
 
-async def require_admin(
-    user_id: Annotated[str, Depends(get_current_user_id)],
-    db: Annotated[AsyncSession, Depends(get_db)],
-) -> User:
-    row = await db.scalar(select(User).where(User.id == user_id))
-    if row is None or not row.is_admin:
-        raise HTTPException(status_code=403, detail="admin required")
-    return row
-
-
-async def require_admin_session(
-    request: Request,
-    db: Annotated[AsyncSession, Depends(get_db)],
-) -> User:
-    """Admin guard for browser Session cookie (`uid`) — OpenAPI `sessionAuth`."""
-    uid = request.session.get("uid")
-    if not uid:
-        raise HTTPException(status_code=401, detail="未登录")
-    row = await db.scalar(select(User).where(User.id == uid))
-    if row is None or not row.is_admin:
-        raise HTTPException(status_code=403, detail="admin required")
-    return row
-
-
 def require_session_permission(permission: str):
     async def _guard(
         request: Request,
@@ -79,3 +55,4 @@ async def get_session_user_id(request: Request) -> str:
     if not uid:
         raise HTTPException(status_code=401, detail="未登录")
     return str(uid)
+

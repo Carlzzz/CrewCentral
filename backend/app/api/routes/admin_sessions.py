@@ -4,7 +4,7 @@ import uuid
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import require_admin
+from app.api.deps import require_session_permission
 from app.auth.token_service import revoke_web_session
 from app.db.session import get_db
 from app.models.user import User
@@ -18,7 +18,7 @@ log = logging.getLogger(__name__)
 async def revoke_session(
     session_id: str,
     db: AsyncSession = Depends(get_db),
-    admin: User = Depends(require_admin),
+    admin: User = Depends(require_session_permission("users.manage")),
 ) -> dict:
     try:
         uuid.UUID(session_id)

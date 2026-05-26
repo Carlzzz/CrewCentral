@@ -22,7 +22,6 @@ build/
 .npm/
 
 # Env
-.env
 .env.local
 .env.*.local
 
