@@ -67,7 +67,6 @@ export default function TopNavBar() {
   const { pathname } = useLocation();
   const [name, setName] = useState<string>("");
   const [email, setEmail] = useState<string>("");
-  const [isAdmin, setIsAdmin] = useState(false);
   const [menuPermissions, setMenuPermissions] = useState<string[]>([]);
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement | null>(null);
@@ -104,13 +103,12 @@ export default function TopNavBar() {
       const u = await fetchSessionUserinfo();
       setName(u?.display_name || u?.email || "");
       setEmail(u?.email || "");
-      setIsAdmin(Boolean(u?.is_admin));
       setMenuPermissions(u?.menu_permissions ?? []);
     })();
   }, []);
 
   function can(perm: string): boolean {
-    return isAdmin || menuPermissions.includes(perm);
+    return menuPermissions.includes(perm);
   }
 
   useEffect(() => {
