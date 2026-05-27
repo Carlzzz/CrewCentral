@@ -42,7 +42,7 @@ def require_session_permission(permission: str):
         if row is None:
             raise HTTPException(status_code=401, detail="用户不存在")
         role = await get_user_role(db, user_id=row.id, is_admin=row.is_admin)
-        perms = set(menus_for_role(role))
+        perms = set(await menus_for_role(db, role))
         if permission in perms:
             return row
         raise HTTPException(status_code=403, detail="permission denied")
