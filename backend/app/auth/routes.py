@@ -81,6 +81,7 @@ async def auth_userinfo(
     if user is None:
         return JSONResponse(status_code=401, content={"detail": "用户不存在"})
     role = await get_user_role(db, user_id=user.id, is_admin=user.is_admin)
+    menu_permissions = await menus_for_role(db, role)
     return JSONResponse(
         {
             "user_id": user.id,
@@ -89,7 +90,7 @@ async def auth_userinfo(
             "avatar_url": user.avatar_url,
             "is_admin": user.is_admin,
             "role": role,
-            "menu_permissions": menus_for_role(role),
+            "menu_permissions": menu_permissions,
         }
     )
 

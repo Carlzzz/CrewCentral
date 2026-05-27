@@ -4,8 +4,12 @@ import {
   createAdminUser,
   deleteAdminUser,
   listAdminUsers,
+  listRoleMenuPermissions,
   patchAdminUser,
+  setRoleMenuPermissions,
   type AdminUserItem,
+  type MenuKeyItem,
+  type RoleMenuPermItem,
 } from "../../lib/user-api";
 
 const ROLES = ["super_admin", "skill_admin", "ops_admin", "docs_admin", "viewer"] as const;
@@ -40,14 +44,6 @@ const PERM_LABELS: Record<string, string> = {
   "models.manage": "模型权限管理",
 };
 
-const ROLE_PERMS: Record<string, string[]> = {
-  super_admin: ["home", "download", "docs", "skills", "skills.assignments", "devices", "releases", "docs.manage", "users.manage", "usage", "models.manage"],
-  skill_admin: ["home", "download", "docs", "skills", "skills.assignments"],
-  ops_admin: ["home", "download", "docs", "devices", "releases", "usage"],
-  docs_admin: ["home", "download", "docs", "docs.manage"],
-  viewer: ["home", "download", "docs"],
-};
-
 export default function UserManagePage() {
   const [items, setItems] = useState<AdminUserItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,6 +53,11 @@ export default function UserManagePage() {
   const [editingUser, setEditingUser] = useState<AdminUserItem | null>(null);
   const [editForm, setEditForm] = useState({ email: "", password: "", display_name: "", role: "viewer" });
   const [showRoleRef, setShowRoleRef] = useState(false);
+  const [rolePerms, setRolePerms] = useState<RoleMenuPermItem[]>([]);
+  const [allMenus, setAllMenus] = useState<MenuKeyItem[]>([]);
+  const [editingRolePerm, setEditingRolePerm] = useState<string | null>(null);
+  const [editMenuKeys, setEditMenuKeys] = useState<string[]>([]);
+  const [savingPerm, setSavingPerm] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -98,6 +99,33 @@ export default function UserManagePage() {
     flash(res.rc === 0 ? "success" : "error", res.message || (res.rc === 0 ? "已删除" : "删除失败"));
     if (res.rc === 0) await load();
   }
+
+  async function loadRolePerms() {
+    const res = await listRoleMenuPermissions();
+    if (res.rc === 0 && res.data) {
+      setRolePerms(res.data.items);
+      setAllMenus(res.data.all_menus);
+    }
+  }
+
+  function startEditRolePerm(role: string, currentKeys: string[]) {
+    setEditingRolePerm(role);
+    setEditMenuKeys([...currentKeys]);
+  }
+
+  function toggleMenuKey(key: string) {
+    setEditMenuKeys((prev) => prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]);
+  }
+
+  async function saveRolePerm() {
+    if (!editingRolePerm) return;
+    setSavingPerm(true);
+    const res = await setRoleMenuPermissions(editingRolePerm, editMenuKeys);
+    flash(res.rc === 0 ? "success" : "error", res.message || (res.rc === 0 ? "菜单权限已更新" : "更新失败"));
+    if (res.rc === 0) { setEditingRolePerm(null); await loadRolePerms(); }
+    setSavingPerm(false);
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8">
       <div className="mx-auto max-w-6xl space-y-6">
@@ -108,7 +136,7 @@ export default function UserManagePage() {
             <p className="text-sm text-slate-500 mt-1">管理系统用户及其角色分配</p>
           </div>
           <div className="mt-4 md:mt-0 flex gap-2">
-            <button type="button" onClick={() => setShowRoleRef((v) => !v)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition">
+            <button type="button" onClick={() => { setShowRoleRef((v) => { if (!v) void loadRolePerms(); return !v; }); }} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition">
               {showRoleRef ? "隐藏" : "查看"}角色权限
             </button>
             <button type="button" onClick={() => setShowCreate((v) => !v)} className="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-500 transition shadow-sm">
@@ -127,21 +155,33 @@ export default function UserManagePage() {
         {/* Role reference panel */}
         {showRoleRef && (
           <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h3 className="text-sm font-bold text-slate-800 mb-3">角色权限一览</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {ROLES.map((role) => (
-                <div key={role} className="rounded-lg border border-slate-100 p-3 space-y-2">
-                  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold border ${ROLE_COLORS[role]}`}>
-                    {ROLE_LABELS[role]}
-                  </span>
-                  <div className="flex flex-wrap gap-1">
-                    {(ROLE_PERMS[role] || []).map((p) => (
-                      <span key={p} className="inline-block rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600">{PERM_LABELS[p] || p}</span>
-                    ))}
+            <h3 className="text-sm font-bold text-slate-800 mb-3">角色权限配置</h3>
+            {rolePerms.length === 0 ? (
+              <div className="text-sm text-slate-400">加载中...</div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {rolePerms.map((rp) => (
+                  <div key={rp.role} className="rounded-lg border border-slate-100 p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold border ${ROLE_COLORS[rp.role] || ROLE_COLORS.viewer}`}>
+                        {ROLE_LABELS[rp.role] || rp.role}
+                      </span>
+                      {rp.role !== "super_admin" && (
+                        <button type="button" onClick={() => startEditRolePerm(rp.role, rp.menu_keys)} className="text-xs text-sky-600 hover:text-sky-800 font-medium">编辑</button>
+                      )}
+                    </div>
+                    {rp.is_default && rp.role !== "super_admin" && (
+                      <div className="text-[10px] text-slate-400">使用默认配置</div>
+                    )}
+                    <div className="flex flex-wrap gap-1">
+                      {rp.menu_keys.map((p) => (
+                        <span key={p} className="inline-block rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600">{PERM_LABELS[p] || p}</span>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
         {/* Create user form */}
@@ -245,6 +285,35 @@ export default function UserManagePage() {
               <div className="flex gap-2 pt-2 border-t border-slate-100">
                 <button type="button" onClick={() => void saveEdit()} className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 transition shadow-sm">保存修改</button>
                 <button type="button" onClick={() => setEditingUser(null)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition">取消</button>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* Edit role menu permission modal */}
+        {editingRolePerm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/40" onClick={() => setEditingRolePerm(null)} />
+            <div className="relative w-full max-w-md rounded-xl bg-white p-6 shadow-xl space-y-5 mx-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-bold text-slate-900">
+                  编辑菜单权限 — <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold border ${ROLE_COLORS[editingRolePerm] || ROLE_COLORS.viewer}`}>{ROLE_LABELS[editingRolePerm] || editingRolePerm}</span>
+                </h3>
+                <button type="button" onClick={() => setEditingRolePerm(null)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button>
+              </div>
+              <div className="max-h-72 overflow-y-auto space-y-1.5">
+                {allMenus.map((m) => (
+                  <label key={m.key} className="flex items-center gap-2.5 rounded-lg px-3 py-2 hover:bg-slate-50 cursor-pointer select-none">
+                    <input type="checkbox" checked={editMenuKeys.includes(m.key)} onChange={() => toggleMenuKey(m.key)} className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-200" />
+                    <span className="text-sm text-slate-700">{PERM_LABELS[m.key] || m.label || m.key}</span>
+                    <span className="text-[10px] text-slate-400 ml-auto font-mono">{m.key}</span>
+                  </label>
+                ))}
+              </div>
+              <div className="flex gap-2 pt-2 border-t border-slate-100">
+                <button type="button" onClick={() => void saveRolePerm()} disabled={savingPerm} className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 transition shadow-sm disabled:opacity-50">
+                  {savingPerm ? "保存中..." : "保存"}
+                </button>
+                <button type="button" onClick={() => setEditingRolePerm(null)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition">取消</button>
               </div>
             </div>
           </div>

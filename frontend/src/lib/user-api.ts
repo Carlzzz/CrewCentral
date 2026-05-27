@@ -83,3 +83,28 @@ export async function uploadReleasePackage(file: File): Promise<
   return { rc: 1, message: typeof obj.detail === "string" ? obj.detail : `上传失败（HTTP ${res.status}）` };
 }
 
+// --- Role menu permissions ---
+
+export type MenuKeyItem = { key: string; label: string };
+
+export type RoleMenuPermItem = {
+  role: string;
+  menu_keys: string[];
+  is_default: boolean;
+};
+
+export async function listRoleMenuPermissions(): Promise<
+  RcResponse<{ items: RoleMenuPermItem[]; all_menus: MenuKeyItem[] }>
+> {
+  return getJson("/admin/users/roles/menu-permissions");
+}
+
+export async function setRoleMenuPermissions(
+  role: string,
+  menuKeys: string[],
+): Promise<RcResponse<unknown>> {
+  return postJson(`/admin/users/roles/${encodeURIComponent(role)}/menu-permissions`, {
+    menu_keys: menuKeys,
+  });
+}
+

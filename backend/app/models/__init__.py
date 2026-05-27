@@ -11,6 +11,7 @@ from app.models.refresh_token import RefreshToken
 from app.models.session import WebSession
 from app.models.user import User
 from app.models.role_model_permission import RoleModelPermission
+from app.models.role_menu_permission import RoleMenuPermission
 from app.models.user_role import UserRole
 
 __all__ = [
@@ -20,6 +21,7 @@ __all__ = [
     "ClientReleaseAudit",
     "User",
     "RoleModelPermission",
+    "RoleMenuPermission",
     "UserRole",
     "AuthorizationRequest",
     "WebSession",

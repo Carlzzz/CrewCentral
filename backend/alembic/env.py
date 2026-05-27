@@ -4,7 +4,7 @@ from alembic import context
 from sqlalchemy import create_engine, pool
 
 from app.db.base import Base
-from app.models import AuthorizationRequest, RefreshToken, RoleModelPermission, User, UserRole, WebSession  # noqa: F401
+from app.models import AuthorizationRequest, RefreshToken, RoleMenuPermission, RoleModelPermission, User, UserRole, WebSession  # noqa: F401
 
 config = context.config
 if config.config_file_name is not None:

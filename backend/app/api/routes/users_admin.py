@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_session_permission
-from app.auth.role_service import ADMIN_LIKE_ROLES, get_user_role, menus_for_role, normalize_role, set_user_role
+from app.auth.role_service import ADMIN_LIKE_ROLES, ALL_MENU_KEYS, ROLE_MENUS, get_role_menu_config, get_user_role, menus_for_role, normalize_role, set_role_menu_config, set_user_role
 from app.core.security import hash_password
 from app.db.session import get_db
 from app.models.user import User
@@ -38,6 +38,7 @@ class UserPatchBody(BaseModel):
 
 async def _serialize_user(db: AsyncSession, u: User) -> dict[str, Any]:
     role = await get_user_role(db, user_id=u.id, is_admin=u.is_admin)
+    menu_permissions = await menus_for_role(db, role)
     return {
         "id": u.id,
         "email": u.email,
@@ -45,7 +46,7 @@ async def _serialize_user(db: AsyncSession, u: User) -> dict[str, Any]:
         "avatar_url": u.avatar_url,
         "is_admin": u.is_admin,
         "role": role,
-        "menu_permissions": menus_for_role(role),
+        "menu_permissions": menu_permissions,
         "created_at": u.created_at.isoformat() if u.created_at else None,
         "updated_at": u.updated_at.isoformat() if u.updated_at else None,
     }
@@ -153,4 +154,41 @@ async def delete_user(
     await db.delete(u)
     await db.commit()
     return rc_ok(message="用户已删除")
+
+
+# --- Role menu permissions management ---
+
+class RoleMenuBody(BaseModel):
+    menu_keys: list[str] = Field(...)
+
+
+@router.get("/roles/menu-permissions")
+async def list_role_menu_permissions(
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_session_permission("users.manage")),
+) -> dict[str, Any]:
+    """获取所有角色的菜单权限配置"""
+    items = []
+    for role in ROLE_MENUS:
+        cfg = await get_role_menu_config(db, role)
+        items.append(cfg)
+    return rc_ok({"items": items, "all_menus": ALL_MENU_KEYS})
+
+
+@router.post("/roles/{role}/menu-permissions")
+async def set_role_menu_perms(
+    role: str,
+    body: RoleMenuBody,
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_session_permission("users.manage")),
+) -> dict[str, Any]:
+    """设置角色的菜单权限"""
+    nr = normalize_role(role)
+    if nr not in ROLE_MENUS:
+        return rc_err("无效的角色")
+    if nr == "super_admin":
+        return rc_err("super_admin 始终拥有全部权限，不可修改")
+    await set_role_menu_config(db, nr, body.menu_keys)
+    await db.commit()
+    return rc_ok(message="菜单权限已更新")
 
