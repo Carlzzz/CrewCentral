@@ -56,6 +56,7 @@ async def usage_overview(
 
     body = {
         "size": 0,
+        "track_total_hits": True,
         "query": {"bool": {"filter": filters}},
         "aggs": {
             "total_input": {"sum": {"field": "input_token"}},
@@ -116,7 +117,7 @@ async def usage_trend(
     username: str | None = None,
     gte: str | None = None,
     lte: str | None = None,
-    days: int = Query(14, ge=1, le=90),
+    days: int = Query(14, ge=1, le=366),
 ) -> dict:
     if await get_es() is None:
         return rc_err("Elasticsearch 未配置")
