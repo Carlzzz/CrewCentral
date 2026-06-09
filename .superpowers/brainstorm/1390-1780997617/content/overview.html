@@ -1,0 +1,29 @@
+<h2>用量分析页面 — 当前状态与优化目标</h2>
+<p class="subtitle">以下是需要修改的 3 个问题及优化方向</p>
+
+<div class="section">
+  <h3>📌 问题 1：总调用次数被 ES 限制在 10K</h3>
+  <p><strong>根因：</strong>后端 <code>/admin/usage/overview</code> 的 ES 查询缺少 <code>"track_total_hits": true</code>，ES 默认在 10,000 处截断计数。</p>
+  <p><strong>修复：</strong>在 overview 查询 body 中加入 <code>"track_total_hits": true</code>，显示真实调用总数。</p>
+</div>
+
+<div class="section">
+  <h3>📌 问题 2：时间筛选器缺少更长时间范围</h3>
+  <p>当前仅支持 <strong>7天 / 14天 / 30天</strong> 三个预设，需要增加：</p>
+  <ul>
+    <li>✅ 保留：近 7 天、近 14 天、近 30 天</li>
+    <li>🆕 新增：近 3 月、近半年、近一年</li>
+    <li>🆕 新增：自定义时间范围（日期选择器）</li>
+  </ul>
+  <p>趋势图、排行榜、调用明细表 <strong>自动跟随时间筛选联动</strong>。</p>
+</div>
+
+<div class="section">
+  <h3>📌 问题 3：用户名 & 模型筛选器改为下拉多选</h3>
+  <p>当前是两个纯文本输入框，需要改为：</p>
+  <ul>
+    <li>🆕 从 ES 拉取可选用户名列表 / 模型列表</li>
+    <li>🆕 支持 <strong>多选</strong>（可同时筛选多个用户或多个模型）</li>
+    <li>🆕 支持搜索/过滤（输入关键词过滤下拉选项）</li>
+  </ul>
+</div>
