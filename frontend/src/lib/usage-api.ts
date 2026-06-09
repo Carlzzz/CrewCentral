@@ -90,3 +90,12 @@ export function fetchUsageRecords(opts: {
 }): Promise<RcResponse<UsageRecordsPage>> {
   return getJson(`/admin/usage/records${qs(opts)}`);
 }
+
+export type FilterOptions = {
+  users: string[];
+  models: string[];
+};
+
+export function fetchFilterOptions(): Promise<RcResponse<FilterOptions>> {
+  return getJson("/admin/usage/filters");
+}
