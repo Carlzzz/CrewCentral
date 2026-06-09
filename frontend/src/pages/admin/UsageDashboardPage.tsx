@@ -330,6 +330,143 @@ function StatCard({
   );
 }
 
+/* ---------- MultiSelect ---------- */
+function MultiSelect({
+  options,
+  selected,
+  onChange,
+  placeholder,
+}: {
+  options: string[];
+  selected: string[];
+  onChange: (s: string[]) => void;
+  placeholder: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // 点击外部关闭
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    if (open) {
+      document.addEventListener("mousedown", handler);
+      return () => document.removeEventListener("mousedown", handler);
+    }
+  }, [open]);
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return options;
+    const q = search.trim().toLowerCase();
+    return options.filter((o) => o.toLowerCase().includes(q));
+  }, [options, search]);
+
+  const toggle = (val: string) => {
+    if (selected.includes(val)) {
+      onChange(selected.filter((v) => v !== val));
+    } else {
+      onChange([...selected, val]);
+    }
+  };
+
+  const selectAll = () => onChange([...options]);
+  const clearAll = () => onChange([]);
+
+  return (
+    <div ref={containerRef} className="relative">
+      {/* 输入框区域 */}
+      <div
+        onClick={() => setOpen(!open)}
+        className={`flex min-w-[140px] cursor-pointer flex-wrap items-center gap-1 rounded-full border-0 bg-white/95 px-3 py-1.5 text-xs shadow-sm ring-1 transition ${
+          open ? "ring-2 ring-sky-300" : "ring-slate-200/80"
+        }`}
+      >
+        {selected.length === 0 ? (
+          <span className="text-slate-400">{placeholder}</span>
+        ) : (
+          selected.map((v) => (
+            <span
+              key={v}
+              className="inline-flex items-center gap-0.5 rounded-full bg-sky-100 px-2 py-0.5 text-[10px] text-sky-700"
+            >
+              <span className="max-w-[80px] truncate">{v}</span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onChange(selected.filter((x) => x !== v));
+                }}
+                className="ml-0.5 text-sky-400 hover:text-sky-600"
+              >
+                ×
+              </button>
+            </span>
+          ))
+        )}
+        {selected.length > 0 && selected.length < options.length && (
+          <span className="text-[10px] text-slate-400">+{options.length - selected.length}</span>
+        )}
+        <span className="ml-auto text-[10px] text-slate-300">▼</span>
+      </div>
+
+      {/* 下拉面板 */}
+      {open && (
+        <div className="absolute left-0 top-full z-50 mt-1 w-64 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
+          <input
+            type="text"
+            placeholder="搜索..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="mb-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-300"
+          />
+          {options.length > 5 && (
+            <div className="mb-1 flex gap-2 border-b border-slate-100 pb-1">
+              <button
+                type="button"
+                onClick={selectAll}
+                className="text-[10px] text-sky-500 hover:text-sky-700"
+              >
+                全选
+              </button>
+              <button
+                type="button"
+                onClick={clearAll}
+                className="text-[10px] text-slate-400 hover:text-slate-600"
+              >
+                取消全选
+              </button>
+            </div>
+          )}
+          <div className="max-h-48 overflow-y-auto">
+            {filtered.length === 0 ? (
+              <p className="py-2 text-center text-[10px] text-slate-400">无匹配选项</p>
+            ) : (
+              filtered.map((opt) => (
+                <label
+                  key={opt}
+                  className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-[11px] text-slate-700 hover:bg-sky-50"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected.includes(opt)}
+                    onChange={() => toggle(opt)}
+                    className="h-3.5 w-3.5 rounded border-slate-300 text-sky-500 focus:ring-sky-400"
+                  />
+                  <span className="truncate">{opt}</span>
+                </label>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function UsageDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [errMsg, setErrMsg] = useState("");
