@@ -513,13 +513,12 @@ export default function UsageDashboardPage() {
       try {
         const username = filterUsers.length > 0 ? filterUsers.join(",") : undefined;
         const modelid = filterModels.length > 0 ? filterModels.join(",") : undefined;
-        const params = { username, gte, lte };
+        const params = { username, modelid, gte, lte };
         const [ov, tr, rc] = await Promise.all([
           fetchUsageOverview(params),
           fetchUsageTrend({ ...params, days: rangeDays || 90 }),
           fetchUsageRecords({
             ...params,
-            modelid,
             page,
             page_size: 30,
           }),
@@ -633,14 +632,6 @@ export default function UsageDashboardPage() {
             onChange={setFilterModels}
             placeholder="模型"
           />
-
-          <button
-            type="button"
-            onClick={() => void loadAll(1)}
-            className="rounded-full bg-slate-800 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-slate-700"
-          >
-            查询
-          </button>
         </div>
       </div>
 

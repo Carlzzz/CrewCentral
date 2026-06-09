@@ -48,6 +48,7 @@ async def usage_overview(
     _: Request,
     __: User = Depends(require_session_permission("usage")),
     username: str | None = None,
+    modelid: str | None = None,
     gte: str | None = None,
     lte: str | None = None,
 ) -> dict:
@@ -58,6 +59,9 @@ async def usage_overview(
     usernames = _parse_multi(username)
     if usernames:
         filters.append({"terms": {"username.keyword": usernames}})
+    modelids = _parse_multi(modelid)
+    if modelids:
+        filters.append({"terms": {"modelid.keyword": modelids}})
     range_q: dict = {"gte": gte or _default_gte()}
     if lte:
         range_q["lte"] = lte
@@ -124,6 +128,7 @@ async def usage_trend(
     _: Request,
     __: User = Depends(require_session_permission("usage")),
     username: str | None = None,
+    modelid: str | None = None,
     gte: str | None = None,
     lte: str | None = None,
     days: int = Query(14, ge=1, le=366),
@@ -139,6 +144,9 @@ async def usage_trend(
     usernames = _parse_multi(username)
     if usernames:
         filters.append({"terms": {"username.keyword": usernames}})
+    modelids = _parse_multi(modelid)
+    if modelids:
+        filters.append({"terms": {"modelid.keyword": modelids}})
     range_q: dict = {"gte": gte}
     if lte:
         range_q["lte"] = lte
