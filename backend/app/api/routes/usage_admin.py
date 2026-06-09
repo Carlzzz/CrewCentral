@@ -238,3 +238,49 @@ async def usage_records(
         "page": page,
         "page_size": page_size,
     })
+
+
+@router.get("/filters")
+async def usage_filters(
+    _: Request,
+    __: User = Depends(require_session_permission("usage")),
+) -> dict:
+    """返回所有去重的用户名和模型列表，供前端下拉筛选使用"""
+    if await get_es() is None:
+        return rc_err("Elasticsearch 未配置（请在 .env 设置 ES_NODE）")
+
+    async def _collect_composite(source_field: str) -> list[str]:
+        """通过 composite aggregation 收集所有去重值"""
+        items: list[str] = []
+        after_key: dict | None = None
+        keyword_field = f"{source_field}.keyword"
+        while True:
+            composite: dict = {
+                "sources": [{"val": {"terms": {"field": keyword_field}}}],
+                "size": 10000,
+            }
+            if after_key:
+                composite["after"] = after_key
+            body = {
+                "size": 0,
+                "aggs": {
+                    "comp": {
+                        "composite": composite,
+                    }
+                },
+            }
+            result = await es_search(body)
+            buckets = result.get("aggregations", {}).get("comp", {}).get("buckets", [])
+            for b in buckets:
+                key = b.get("key", {}).get("val")
+                if key:
+                    items.append(key)
+            after_key = result.get("aggregations", {}).get("comp", {}).get("after_key")
+            if not after_key or not buckets:
+                break
+        return sorted(items)
+
+    users = await _collect_composite("username")
+    models = await _collect_composite("modelid")
+
+    return rc_ok({"users": users, "models": models})
