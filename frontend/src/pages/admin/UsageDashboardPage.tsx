@@ -3,9 +3,11 @@ import {
   fetchUsageOverview,
   fetchUsageTrend,
   fetchUsageRecords,
+  fetchFilterOptions,
   type UsageOverview,
   type DayBucket,
   type UsageRecord,
+  type FilterOptions,
 } from "../../lib/usage-api";
 
 function fmtNum(n: number): string {
@@ -477,14 +479,31 @@ export default function UsageDashboardPage() {
   const [recordsTotal, setRecordsTotal] = useState(0);
   const [recordsPage, setRecordsPage] = useState(1);
 
-  const [rangePreset, setRangePreset] = useState<"7d" | "14d" | "30d">("7d");
-  const [filterUser, setFilterUser] = useState("");
-  const [filterModel, setFilterModel] = useState("");
+  const [rangePreset, setRangePreset] = useState<"7d" | "14d" | "30d" | "3m" | "6m" | "1y" | "custom">("7d");
+  const [filterUsers, setFilterUsers] = useState<string[]>([]);
+  const [filterModels, setFilterModels] = useState<string[]>([]);
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+  const [filterOptions, setFilterOptions] = useState<FilterOptions | null>(null);
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
   const [modalChart, setModalChart] = useState<"trend" | "model" | "user" | null>(null);
 
-  const rangeDays = rangePreset === "30d" ? 30 : rangePreset === "14d" ? 14 : 7;
-  const gte = useMemo(() => `${daysAgo8(rangeDays)}T00:00:00.000+08:00`, [rangeDays]);
+  const daysPreset: Record<string, number> = { "7d": 7, "14d": 14, "30d": 30, "3m": 90, "6m": 180, "1y": 365 };
+  const rangeDays = rangePreset === "custom" ? 0 : (daysPreset[rangePreset] ?? 7);
+
+  const gte = useMemo(() => {
+    if (rangePreset === "custom" && customStart) {
+      return `${customStart}T00:00:00.000+08:00`;
+    }
+    return `${daysAgo8(rangeDays || 7)}T00:00:00.000+08:00`;
+  }, [rangePreset, customStart, rangeDays]);
+
+  const lte = useMemo(() => {
+    if (rangePreset === "custom" && customEnd) {
+      return `${customEnd}T23:59:59.999+08:00`;
+    }
+    return undefined;
+  }, [rangePreset, customEnd]);
 
   const loadAll = useCallback(
     async (page = 1) => {
@@ -492,13 +511,15 @@ export default function UsageDashboardPage() {
       setErrMsg("");
       setTrendErr("");
       try {
-        const params = { username: filterUser || undefined, gte };
+        const username = filterUsers.length > 0 ? filterUsers.join(",") : undefined;
+        const modelid = filterModels.length > 0 ? filterModels.join(",") : undefined;
+        const params = { username, gte, lte };
         const [ov, tr, rc] = await Promise.all([
           fetchUsageOverview(params),
-          fetchUsageTrend({ ...params, days: rangeDays }),
+          fetchUsageTrend({ ...params, days: rangeDays || 90 }),
           fetchUsageRecords({
             ...params,
-            modelid: filterModel || undefined,
+            modelid,
             page,
             page_size: 30,
           }),
@@ -525,8 +546,17 @@ export default function UsageDashboardPage() {
         setLoading(false);
       }
     },
-    [filterUser, filterModel, gte, rangeDays],
+    [filterUsers, filterModels, gte, lte, rangeDays],
   );
+
+  // 加载筛选选项（仅首次）
+  useEffect(() => {
+    fetchFilterOptions().then((res) => {
+      if (res.rc === 0 && res.data) {
+        setFilterOptions(res.data);
+      }
+    });
+  }, []);
 
   useEffect(() => {
     void loadAll(1);
@@ -542,7 +572,7 @@ export default function UsageDashboardPage() {
           <p className="mt-0.5 text-xs text-slate-500">看看大家把 Token 花哪儿啦 ✨</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {(["7d", "14d", "30d"] as const).map((p) => (
+          {(["7d", "14d", "30d", "3m", "6m", "1y", "custom"] as const).map((p) => (
             <button
               key={p}
               type="button"
@@ -553,23 +583,57 @@ export default function UsageDashboardPage() {
                   : "bg-white/90 text-slate-600 ring-1 ring-slate-200/80 hover:bg-sky-50"
               }`}
             >
-              {p === "7d" ? "近 7 天" : p === "14d" ? "近 14 天" : "近 30 天"}
+              {p === "7d"
+                ? "近 7 天"
+                : p === "14d"
+                  ? "近 14 天"
+                  : p === "30d"
+                    ? "近 30 天"
+                    : p === "3m"
+                      ? "近 3 月"
+                      : p === "6m"
+                        ? "近半年"
+                        : p === "1y"
+                          ? "近一年"
+                          : "自定义"}
             </button>
           ))}
-          <input
-            type="text"
+
+          {/* 自定义日期选择器 */}
+          {rangePreset === "custom" && (
+            <div className="flex items-center gap-1">
+              <input
+                type="date"
+                value={customStart}
+                onChange={(e) => setCustomStart(e.target.value)}
+                className="w-32 rounded-full border-0 bg-white/95 px-3 py-1.5 text-xs shadow-sm ring-1 ring-slate-200/80 focus:ring-2 focus:ring-sky-300"
+              />
+              <span className="text-xs text-slate-400">至</span>
+              <input
+                type="date"
+                value={customEnd}
+                onChange={(e) => setCustomEnd(e.target.value)}
+                className="w-32 rounded-full border-0 bg-white/95 px-3 py-1.5 text-xs shadow-sm ring-1 ring-slate-200/80 focus:ring-2 focus:ring-sky-300"
+              />
+            </div>
+          )}
+
+          {/* 用户名多选 */}
+          <MultiSelect
+            options={filterOptions?.users ?? []}
+            selected={filterUsers}
+            onChange={setFilterUsers}
             placeholder="用户名"
-            value={filterUser}
-            onChange={(e) => setFilterUser(e.target.value)}
-            className="w-24 rounded-full border-0 bg-white/95 px-3 py-1.5 text-xs shadow-sm ring-1 ring-slate-200/80 focus:ring-2 focus:ring-sky-300"
           />
-          <input
-            type="text"
+
+          {/* 模型多选 */}
+          <MultiSelect
+            options={filterOptions?.models ?? []}
+            selected={filterModels}
+            onChange={setFilterModels}
             placeholder="模型"
-            value={filterModel}
-            onChange={(e) => setFilterModel(e.target.value)}
-            className="w-32 rounded-full border-0 bg-white/95 px-3 py-1.5 text-xs shadow-sm ring-1 ring-slate-200/80 focus:ring-2 focus:ring-sky-300"
           />
+
           <button
             type="button"
             onClick={() => void loadAll(1)}
