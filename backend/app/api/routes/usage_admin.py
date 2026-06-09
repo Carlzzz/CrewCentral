@@ -35,6 +35,14 @@ def _default_gte() -> str:
     return dt.strftime("%Y-%m-%dT%H:%M:%S.000+08:00")
 
 
+def _parse_multi(param: str | None) -> list[str] | None:
+    """将逗号分隔的字符串解析为列表，用于多选筛选"""
+    if not param:
+        return None
+    result = [v.strip() for v in param.split(",") if v.strip()]
+    return result if result else None
+
+
 @router.get("/overview")
 async def usage_overview(
     _: Request,
@@ -47,8 +55,9 @@ async def usage_overview(
         return rc_err("Elasticsearch 未配置（请在 .env 设置 ES_NODE）")
 
     filters: list[dict] = []
-    if username:
-        filters.append({"term": {"username.keyword": username}})
+    usernames = _parse_multi(username)
+    if usernames:
+        filters.append({"terms": {"username.keyword": usernames}})
     range_q: dict = {"gte": gte or _default_gte()}
     if lte:
         range_q["lte"] = lte
@@ -127,8 +136,9 @@ async def usage_trend(
         gte = dt.strftime("%Y-%m-%dT%H:%M:%S.000+08:00")
 
     filters: list[dict] = []
-    if username:
-        filters.append({"term": {"username.keyword": username}})
+    usernames = _parse_multi(username)
+    if usernames:
+        filters.append({"terms": {"username.keyword": usernames}})
     range_q: dict = {"gte": gte}
     if lte:
         range_q["lte"] = lte
@@ -189,10 +199,12 @@ async def usage_records(
         return rc_err("Elasticsearch 未配置")
 
     filters: list[dict] = []
-    if username:
-        filters.append({"term": {"username.keyword": username}})
-    if modelid:
-        filters.append({"term": {"modelid.keyword": modelid}})
+    usernames = _parse_multi(username)
+    if usernames:
+        filters.append({"terms": {"username.keyword": usernames}})
+    modelids = _parse_multi(modelid)
+    if modelids:
+        filters.append({"terms": {"modelid.keyword": modelids}})
     if session_id:
         filters.append({"term": {"session_id.keyword": session_id}})
     range_q: dict = {"gte": gte or _default_gte()}
