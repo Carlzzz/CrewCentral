@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field, model_validator
 class SkillUploadMeta(BaseModel):
     slug: str = Field(..., min_length=1, max_length=64)
     name: str = Field(..., min_length=1, max_length=128)
-    version: str = Field(..., min_length=1, max_length=32)
+    version: str = Field(default="0.0.0", max_length=32)
     description: str | None = None
     category: str = Field(default="custom", max_length=32)
     platforms: list[str] = Field(default_factory=list)

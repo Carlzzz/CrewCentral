@@ -90,11 +90,8 @@ def _extract_front_matter(skill_md: str) -> dict:
     loaded = yaml.safe_load(m.group(1)) or {}
     if not isinstance(loaded, dict):
         raise HTTPException(status_code=400, detail="SKILL.md frontmatter 非法")
-    for key in ("name", "version"):
-        if not loaded.get(key):
-            raise HTTPException(status_code=400, detail=f"SKILL.md 缺少字段: {key}")
-    if not (loaded.get("publisher") or loaded.get("author")):
-        raise HTTPException(status_code=400, detail="SKILL.md 缺少字段: publisher 或 author")
+    if not loaded.get("name"):
+        raise HTTPException(status_code=400, detail="SKILL.md 缺少字段: name")
     return loaded
 
 
@@ -136,7 +133,7 @@ async def parse_upload_metadata(file: UploadFile) -> tuple[SkillUploadMeta, byte
         meta = SkillUploadMeta(
             slug=slug,
             name=str(fm["name"]).strip(),
-            version=str(fm["version"]).strip(),
+            version=str(fm.get("version", "0.0.0")).strip(),
             description=description,
             category=_norm_category(fm.get("category")),
             platforms=_norm_platforms(fm.get("platforms")),
