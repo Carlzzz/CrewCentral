@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 600
     refresh_token_expire_days: int = 7
+    refresh_grace_seconds: int = 60
+    """After rotation, the old refresh token is still accepted within this window."""
     skip_auth: int = 0
     """1 = development only: bypass password check for /api/v1/auth/login."""
 
