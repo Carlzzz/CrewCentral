@@ -42,6 +42,7 @@ async def _serialize_user(db: AsyncSession, u: User) -> dict[str, Any]:
     return {
         "id": u.id,
         "email": u.email,
+        "username": u.username,
         "display_name": u.display_name,
         "avatar_url": u.avatar_url,
         "is_admin": u.is_admin,

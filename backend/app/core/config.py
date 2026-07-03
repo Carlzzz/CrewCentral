@@ -49,6 +49,30 @@ class Settings(BaseSettings):
     crew_proxy_url: str = "http://localhost:3456"
     crew_proxy_api_key: str = ""
 
+    # Windows AD authentication (006-ad-auth)
+    ad_auth_enabled: int = 0
+    """1 = enable AD login entry + endpoints. 0 = disabled (default)."""
+    ad_url: str = ""
+    """LDAP(S) server URL, e.g. ldap://dc.example.com:389 or ldaps://dc.example.com:636."""
+    ad_base_dn: str = ""
+    """Search base for user lookup, e.g. DC=example,DC=com."""
+    ad_bind_dn: str = ""
+    """Service account DN used to search for user entries."""
+    ad_bind_password: str = ""
+    """Service account password. Injected via env AD_BIND_PASSWORD; never logged."""
+    ad_user_search_filter: str = "(sAMAccountName={account})"
+    """LDAP filter template. `{account}` is replaced with the escaped login name."""
+    ad_tls_enabled: int = 0
+    """1 = require TLS (LDAPS or StartTLS). MUST be 1 in production."""
+    ad_attr_email: str = "mail"
+    ad_attr_display_name: str = "displayName"
+    ad_attr_department: str = "department"
+    ad_attr_title: str = "title"
+    ad_connect_timeout_seconds: int = 5
+    """Socket/bind timeout so an unreachable AD fails fast instead of blocking."""
+    ad_page_size: int = 500
+    """Paged-search page size for batch sync (AD default max is 1000)."""
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -83,7 +83,7 @@ export default function UserManagePage() {
 
   function startEdit(u: AdminUserItem) {
     setEditingUser(u);
-    setEditForm({ email: u.email, password: "", display_name: u.display_name || "", role: u.role || "viewer" });
+    setEditForm({ email: u.email || "", password: "", display_name: u.display_name || "", role: u.role || "viewer" });
   }
 
   async function saveEdit() {
@@ -94,7 +94,7 @@ export default function UserManagePage() {
   }
 
   async function onDeleteUser(u: AdminUserItem) {
-    if (!confirm(`确认删除用户「${u.display_name || u.email}」？此操作不可撤销。`)) return;
+    if (!confirm(`确认删除用户「${u.display_name || u.username || u.email}」？此操作不可撤销。`)) return;
     const res = await deleteAdminUser(u.id);
     flash(res.rc === 0 ? "success" : "error", res.message || (res.rc === 0 ? "已删除" : "删除失败"));
     if (res.rc === 0) await load();
@@ -233,8 +233,8 @@ export default function UserManagePage() {
               ) : items.map((u) => (
                 <tr key={u.id} className={`hover:bg-slate-50 transition-colors ${editingUser?.id === u.id ? "bg-sky-50/50" : ""}`}>
                   <td className="px-4 py-3.5">
-                    <div className="font-medium text-slate-900">{u.display_name || u.email.split("@")[0]}</div>
-                    <div className="text-xs text-slate-400 mt-0.5">{u.email}</div>
+                    <div className="font-medium text-slate-900">{u.display_name || u.username || u.email?.split("@")[0] || "—"}</div>
+                    <div className="text-xs text-slate-400 mt-0.5">{u.email || (u.username ? `AD: ${u.username}` : "—")}</div>
                   </td>
                   <td className="px-4 py-3.5">
                     <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold border ${ROLE_COLORS[u.role] || ROLE_COLORS.viewer}`}>

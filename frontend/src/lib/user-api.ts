@@ -2,7 +2,8 @@ import { apiPrefix, deleteJson, getJson, patchJson, postJson, type RcResponse } 
 
 export type AdminUserItem = {
   id: string;
-  email: string;
+  email: string | null;
+  username: string | null;
   display_name: string | null;
   avatar_url: string | null;
   is_admin: boolean;

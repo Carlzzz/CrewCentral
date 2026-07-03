@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { fetchSessionUserinfo, postJson } from "../lib/api";
+import { fetchAdEnabled } from "../lib/adAuth";
 
 export default function LoginPage() {
   const [params] = useSearchParams();
@@ -12,8 +13,20 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [sessionChecked, setSessionChecked] = useState(false);
   const [adminLoggedIn, setAdminLoggedIn] = useState(false);
+  const [adEnabled, setAdEnabled] = useState(false);
 
   const isClientAuth = useMemo(() => state.length >= 8, [state]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const enabled = await fetchAdEnabled();
+      if (!cancelled) setAdEnabled(enabled);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -142,13 +155,17 @@ export default function LoginPage() {
           >
             {loading ? "登录中…" : "登录"}
           </button>
-          <button
-            type="button"
-            className="w-full rounded-lg border border-slate-200 py-2.5 text-sm text-slate-600 hover:bg-slate-50"
-            onClick={() => setErr("SSO 集成尚未连接，请使用本地账号或启用 SKIP_AUTH。")}
-          >
-            使用企业 SSO 登录（占位）
-          </button>
+          {adEnabled ? (
+            <Link
+              to={{
+                pathname: "/login/ad",
+                search: isClientAuth ? `?state=${encodeURIComponent(state)}` : "",
+              }}
+              className="block w-full rounded-lg border border-slate-200 py-2.5 text-center text-sm text-slate-600 hover:bg-slate-50"
+            >
+              使用企业 AD 登录
+            </Link>
+          ) : null}
         </form>
       </div>
     </div>

@@ -84,7 +84,8 @@ export async function fetchConsentContext(state: string): Promise<RcResponse<{
 
 export async function fetchSessionUserinfo(): Promise<{
   user_id: string;
-  email: string;
+  email: string | null;
+  username?: string | null;
   display_name: string | null;
   avatar_url: string | null;
   is_admin: boolean;

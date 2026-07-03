@@ -3,6 +3,7 @@ import AuthCancelledPage from "./pages/AuthCancelledPage";
 import AuthSuccessPage from "./pages/AuthSuccessPage";
 import ConsentPage from "./pages/ConsentPage";
 import LoginPage from "./pages/LoginPage";
+import ADLoginPage from "./pages/ADLoginPage";
 import DeviceManagePage from "./pages/admin/DeviceManagePage";
 import SkillAssignmentPage from "./pages/admin/SkillAssignmentPage";
 import SkillDiscoverPage from "./pages/admin/SkillDiscoverPage";
@@ -29,6 +30,7 @@ export default function App() {
       <Route path="/" element={<IndexRedirect />} />
       <Route path="/home" element={<HomePage />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/login/ad" element={<ADLoginPage />} />
       <Route path="/consent" element={<ConsentPage />} />
       <Route path="/success" element={<AuthSuccessPage />} />
       <Route path="/cancelled" element={<AuthCancelledPage />} />

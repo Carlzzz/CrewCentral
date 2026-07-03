@@ -12,6 +12,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app.api.routes import (
     account,
+    ad_auth,
     admin_sessions,
     auth_refresh,
     consent,
@@ -89,6 +90,7 @@ def create_app() -> FastAPI:
 
     # JSON API under /api/v1
     root.include_router(login.router, prefix="/api/v1")
+    root.include_router(ad_auth.router, prefix="/api/v1")
     root.include_router(consent.router, prefix="/api/v1")
     root.include_router(auth_refresh.router, prefix="/api/v1")
     root.include_router(admin_sessions.router, prefix="/api/v1")

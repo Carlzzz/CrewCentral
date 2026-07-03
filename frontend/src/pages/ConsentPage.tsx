@@ -4,7 +4,8 @@ import { fetchConsentContext, fetchSessionUserinfo, postJson } from "../lib/api"
 
 type UserRow = {
   user_id: string;
-  email: string;
+  email: string | null;
+  username?: string | null;
   display_name: string | null;
   avatar_url: string | null;
 };
@@ -104,12 +105,12 @@ export default function ConsentPage() {
               <img src={user.avatar_url} alt="" className="h-full w-full object-cover" />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-2xl font-semibold text-sky-600">
-                {(user.display_name || user.email).slice(0, 1).toUpperCase()}
+                {(user.display_name || user.username || user.email || "?").slice(0, 1).toUpperCase()}
               </div>
             )}
           </div>
-          <p className="text-lg font-medium text-slate-900">{user.display_name || user.email}</p>
-          <p className="text-sm text-slate-500">{user.email}</p>
+          <p className="text-lg font-medium text-slate-900">{user.display_name || user.email || user.username}</p>
+          <p className="text-sm text-slate-500">{user.email || (user.username ? `AD: ${user.username}` : "")}</p>
         </div>
         <p className="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-center text-xs leading-relaxed text-amber-800">
           请确保这是您本人在设备 <span className="font-semibold text-amber-900">{deviceLabel}</span>{" "}
