@@ -13,8 +13,10 @@ from app.models.user import User
 from app.models.role_model_permission import RoleModelPermission
 from app.models.role_menu_permission import RoleMenuPermission
 from app.models.user_role import UserRole
+from app.models.ad_role_mapping import ADRoleMapping
 
 __all__ = [
+    "ADRoleMapping",
     "DocPage",
     "ClientRelease",
     "ClientReleaseAsset",

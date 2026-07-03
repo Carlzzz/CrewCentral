@@ -5,9 +5,14 @@ export type AdminUserItem = {
   email: string | null;
   username: string | null;
   display_name: string | null;
+  department: string | null;
+  title: string | null;
   avatar_url: string | null;
   is_admin: boolean;
   role: string;
+  role_label: string;
+  role_locked: boolean;
+  source: "ad" | "local";
   menu_permissions: string[];
   created_at: string | null;
   updated_at: string | null;
@@ -42,6 +47,63 @@ export async function patchAdminUser(
 
 export async function deleteAdminUser(userId: string): Promise<RcResponse<unknown>> {
   return deleteJson(`/admin/users/${encodeURIComponent(userId)}`);
+}
+
+export async function unlockUserRole(userId: string): Promise<RcResponse<AdminUserItem>> {
+  return postJson(`/admin/users/${encodeURIComponent(userId)}/unlock-role`, {});
+}
+
+// --- AD sync + group→role mappings (006-ad-auth) ---
+
+export type ADSyncResult = {
+  created: number;
+  updated: number;
+  skipped: number;
+  errors: string[];
+  dry_run: boolean;
+};
+
+export type ADRoleMappingItem = {
+  ad_group: string;
+  label: string | null;
+  menu_keys: string[];
+  priority: number;
+  is_admin: boolean;
+  updated_at: string | null;
+};
+
+export type ADGroupItem = { cn: string; description: string };
+
+export async function runAdSync(body?: {
+  base_dn?: string;
+  filter?: string;
+  dry_run?: boolean;
+}): Promise<RcResponse<ADSyncResult>> {
+  return postJson("/ad-auth/admin/ad/sync", body ?? {});
+}
+
+export async function listAdGroups(): Promise<RcResponse<{ items: ADGroupItem[] }>> {
+  return getJson("/ad-auth/admin/ad/groups");
+}
+
+export async function listAdRoleMappings(): Promise<
+  RcResponse<{ items: ADRoleMappingItem[]; all_menus: MenuKeyItem[] }>
+> {
+  return getJson("/admin/users/ad-role-mappings");
+}
+
+export async function upsertAdRoleMapping(body: {
+  ad_group: string;
+  label?: string;
+  menu_keys: string[];
+  priority: number;
+  is_admin: boolean;
+}): Promise<RcResponse<ADRoleMappingItem>> {
+  return postJson("/admin/users/ad-role-mappings", body);
+}
+
+export async function deleteAdRoleMapping(adGroup: string): Promise<RcResponse<unknown>> {
+  return deleteJson(`/admin/users/ad-role-mappings/${encodeURIComponent(adGroup)}`);
 }
 
 export async function changeMyPassword(

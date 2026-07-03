@@ -32,5 +32,5 @@ async def get_me(
         "display_name": u.display_name,
         "avatar_url": u.avatar_url,
         "role": role,
-        "menu_permissions": menus_for_role(role),
+        "menu_permissions": await menus_for_role(db, role),
     })

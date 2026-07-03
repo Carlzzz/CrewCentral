@@ -8,6 +8,7 @@ blocking the event loop. No AD password is ever logged (FR-009).
 from __future__ import annotations
 
 import logging
+import uuid
 from dataclasses import dataclass, field
 
 from ldap3 import ALL, SUBTREE, Connection, Server, Tls
@@ -68,16 +69,32 @@ class ADUserAttrs:
     department: str | None = None
     title: str | None = None
     disabled: bool = False
+    groups: list[str] = field(default_factory=list)
     raw: dict = field(default_factory=dict)
 
 
 def _guid_to_hex(value: object) -> str | None:
-    """objectGUID comes back as raw 16 bytes; store as lowercase hex."""
+    """Normalize objectGUID to a stable lowercase hex string.
+
+    ldap3 returns objectGUID in different shapes depending on how the attribute
+    is decoded: a raw 16-byte ``bytes`` (paged/raw search), or a formatted GUID
+    string like ``{c82f1816-e1a9-42a2-91b2-1db242bb55a2}`` (``entry_attributes_as_dict``),
+    either of which may be wrapped in a single-element list.
+
+    Both are normalized to the same canonical 32-char hex (the standard GUID
+    string form, no braces/dashes) so login and batch-sync produce an identical
+    ``ad_guid`` for the same account. objectGUID stores the first three fields in
+    little-endian byte order, so raw bytes are parsed via ``bytes_le``.
+    """
+    if isinstance(value, (list, tuple)):
+        value = value[0] if value else None
     if isinstance(value, bytes):
-        return value.hex()
+        if len(value) != 16:
+            return value.hex()
+        return uuid.UUID(bytes_le=value).hex
     if isinstance(value, str) and value:
-        # Some servers/config return it already formatted ({...}); keep as-is trimmed.
-        return value.strip("{}").lower()
+        # Formatted GUID ({8-4-4-4-12}); drop braces/dashes -> 32 hex chars.
+        return value.strip("{}").replace("-", "").lower()
     return None
 
 
@@ -89,6 +106,27 @@ def _first(value: object) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _member_of_cns(value: object) -> list[str]:
+    """Extract group CNs from a memberOf attribute (list of group DNs).
+
+    ``CN=SG-IT,OU=Security Group,...`` -> ``SG-IT``. Only the first RDN is taken;
+    DNs are the AD-canonical form so the CN component is reliably first.
+    """
+    if value is None:
+        return []
+    dns = value if isinstance(value, (list, tuple)) else [value]
+    cns: list[str] = []
+    for dn in dns:
+        text = str(dn).strip()
+        if not text:
+            continue
+        first_rdn = text.split(",", 1)[0]
+        key, _, cn = first_rdn.partition("=")
+        if key.strip().lower() == "cn" and cn.strip():
+            cns.append(cn.strip())
+    return cns
 
 
 class ADClient:
@@ -168,6 +206,7 @@ class ADClient:
             department=_first(entry_attrs.get(s.ad_attr_department)),
             title=_first(entry_attrs.get(s.ad_attr_title)),
             disabled=disabled,
+            groups=_member_of_cns(entry_attrs.get("memberOf")),
         )
 
     def _search_attributes(self) -> list[str]:
@@ -180,6 +219,7 @@ class ADClient:
             s.ad_attr_display_name,
             s.ad_attr_department,
             s.ad_attr_title,
+            "memberOf",
         ]
 
     def authenticate(self, account: str, password: str) -> ADUserAttrs:
@@ -248,3 +288,29 @@ class ADClient:
                     continue
         finally:
             svc.unbind()
+
+    def list_groups(self, base_dn: str | None = None) -> list[dict[str, str]]:
+        """List AD groups (CN + optional description) for the mapping picker."""
+        base = base_dn or self._s.ad_base_dn
+        svc = self._connect(self._s.ad_bind_dn or None, self._s.ad_bind_password or None)
+        out: list[dict[str, str]] = []
+        try:
+            entries = svc.extend.standard.paged_search(
+                search_base=base,
+                search_filter="(objectCategory=group)",
+                search_scope=SUBTREE,
+                attributes=["cn", "description"],
+                paged_size=self._s.ad_page_size,
+                generator=True,
+            )
+            for item in entries:
+                if item.get("type") != "searchResEntry":
+                    continue
+                a = item.get("attributes") or {}
+                cn = _first(a.get("cn"))
+                if cn:
+                    out.append({"cn": cn, "description": _first(a.get("description")) or ""})
+        finally:
+            svc.unbind()
+        out.sort(key=lambda g: g["cn"].lower())
+        return out

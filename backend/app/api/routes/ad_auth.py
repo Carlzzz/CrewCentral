@@ -119,6 +119,21 @@ async def ad_sync(
     return rc_ok(result.model_dump(), message="同步完成")
 
 
+@router.get("/admin/ad/groups")
+async def ad_groups(
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_session_permission("users.manage")),
+) -> dict:
+    """List AD groups so admins can pick when creating a group→role mapping."""
+    _require_ad_enabled()
+    try:
+        client = ADClient(get_settings())
+        groups = await anyio.to_thread.run_sync(client.list_groups)
+    except ADError as exc:
+        return rc_err(exc.public_message)
+    return rc_ok({"items": groups})
+
+
 async def _existing_user_for(db: AsyncSession, ad_guid: str, account: str) -> User | None:
     from sqlalchemy import select
 

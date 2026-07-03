@@ -31,6 +31,14 @@ ALL_MENU_KEYS: list[dict[str, str]] = [
 
 ADMIN_LIKE_ROLES = {"super_admin", "skill_admin", "ops_admin", "docs_admin"}
 
+ROLE_LABELS: dict[str, str] = {
+    "super_admin": "超级管理员",
+    "skill_admin": "技能管理员",
+    "ops_admin": "运维管理员",
+    "docs_admin": "文档管理员",
+    "viewer": "普通用户",
+}
+
 
 def normalize_role(role: str | None) -> str:
     r = (role or "").strip().lower()
@@ -40,35 +48,53 @@ def normalize_role(role: str | None) -> str:
 async def get_user_role(db: AsyncSession, *, user_id: str, is_admin: bool) -> str:
     row = await db.scalar(select(UserRole.role).where(UserRole.user_id == user_id))
     if row:
-        return normalize_role(str(row))
+        # Do NOT normalize: the stored value may be a dynamic AD-group role whose
+        # menus are resolved separately. normalize_role would collapse it to viewer.
+        return str(row)
     return "super_admin" if is_admin else "viewer"
 
 
 async def set_user_role(db: AsyncSession, *, user_id: str, role: str) -> str:
     nr = normalize_role(role)
-    existing = await db.get(UserRole, user_id)
-    if existing:
-        existing.role = nr
-    else:
-        db.add(UserRole(user_id=user_id, role=nr))
+    await set_user_role_raw(db, user_id=user_id, role=nr)
     return nr
 
 
+async def set_user_role_raw(db: AsyncSession, *, user_id: str, role: str) -> str:
+    """Store a role verbatim (used for dynamic AD-group roles that aren't built-in)."""
+    existing = await db.get(UserRole, user_id)
+    if existing:
+        existing.role = role
+    else:
+        db.add(UserRole(user_id=user_id, role=role))
+    return role
+
+
 async def menus_for_role(db: AsyncSession, role: str) -> list[str]:
-    """获取角色的菜单权限。super_admin 始终全部。其他角色先查 DB，无记录回退默认值。"""
-    nr = normalize_role(role)
-    if nr == "super_admin":
+    """获取角色的菜单权限。
+
+    super_admin 始终全部；内置角色先查 DB 覆盖、无则回退默认；否则按动态 AD
+    组角色（ad_role_mappings）解析；都不匹配回退 viewer。
+    """
+    if role == "super_admin":
         return ROLE_MENUS["super_admin"]
-    from app.models.role_menu_permission import RoleMenuPermission
-    row = await db.scalar(
-        select(RoleMenuPermission.menu_keys).where(RoleMenuPermission.role == nr)
-    )
-    if row is not None:
-        keys_str = str(row).strip()
-        if not keys_str:
-            return []
-        return [k.strip() for k in keys_str.split(",") if k.strip()]
-    return ROLE_MENUS.get(nr, ROLE_MENUS["viewer"])
+
+    if role in ROLE_MENUS:
+        from app.models.role_menu_permission import RoleMenuPermission
+        row = await db.scalar(
+            select(RoleMenuPermission.menu_keys).where(RoleMenuPermission.role == role)
+        )
+        if row is not None:
+            keys_str = str(row).strip()
+            return [k.strip() for k in keys_str.split(",") if k.strip()] if keys_str else []
+        return ROLE_MENUS[role]
+
+    # Dynamic AD-group role: menus live on the mapping row.
+    from app.auth.ad_role_service import menu_keys_for_ad_role
+    ad_menus = await menu_keys_for_ad_role(db, role)
+    if ad_menus is not None:
+        return ad_menus
+    return ROLE_MENUS["viewer"]
 
 
 async def get_role_menu_config(db: AsyncSession, role: str) -> dict[str, Any]:

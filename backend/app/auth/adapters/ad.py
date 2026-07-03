@@ -13,6 +13,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.adapters.base import AuthAdapter
+from app.auth.ad_role_service import resolve_role_from_groups
+from app.auth.role_service import set_user_role_raw
 from app.core.config import get_settings
 from app.models.user import User
 from app.services.ad_client import ADClient, ADUserAttrs
@@ -71,6 +73,8 @@ async def sync_user_from_ad(db: AsyncSession, attrs: ADUserAttrs) -> User:
         )
         db.add(user)
         await db.flush()
+        await _apply_ad_role(db, user, attrs.groups)
+        await db.flush()
         return user
 
     # Update mutable, AD-owned fields only when AD provides a non-empty value.
@@ -84,8 +88,26 @@ async def sync_user_from_ad(db: AsyncSession, attrs: ADUserAttrs) -> User:
         user.title = attrs.title
     if attrs.email and not user.email:
         user.email = attrs.email
+    await _apply_ad_role(db, user, attrs.groups)
     await db.flush()
     return user
+
+
+async def _apply_ad_role(db: AsyncSession, user: User, groups: list[str]) -> None:
+    """Set the user's role from mapped AD groups unless the role is manually locked.
+
+    ``role_locked`` (set when an admin edits the role in the UI) takes precedence,
+    so AD login/sync never overrides a manual assignment. Only groups that have a
+    mapping affect the role; unmapped-only users are left untouched.
+    """
+    if user.role_locked:
+        return
+    resolved = await resolve_role_from_groups(db, groups)
+    if resolved is None:
+        return
+    role, is_admin = resolved
+    await set_user_role_raw(db, user_id=user.id, role=role)
+    user.is_admin = is_admin
 
 
 async def _match_local_by_email_prefix(db: AsyncSession, account: str) -> User | None:
