@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import ChangelogPanel from "../components/download/ChangelogPanel";
 import DownloadButtonGroup from "../components/download/DownloadButtonGroup";
 import HeroSection from "../components/download/HeroSection";
+import PrerequisiteCard from "../components/download/PrerequisiteCard";
 import TopNavBar from "../components/layout/TopNavBar";
 import type { AssetPublic, Platform } from "../lib/releases-api";
 import { getDownloadContext } from "../lib/releases-api";
@@ -95,6 +96,7 @@ export default function DownloadLandingPage() {
                 selected={selected}
                 onSelect={(p) => setSelected(p)}
               />
+              <PrerequisiteCard platform={selected} />
               <div className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5">
                 <h2 className="text-sm font-semibold text-slate-700">校验码</h2>
                 {!activeAsset ? (
