@@ -116,6 +116,38 @@ export async function deleteAdRoleMapping(adGroup: string): Promise<RcResponse<u
   return deleteJson(`/admin/users/ad-role-mappings/${encodeURIComponent(adGroup)}`);
 }
 
+// --- AD OU → role mappings (006-ad-auth) ---
+
+export type ADOUMappingItem = {
+  ou_name: string;
+  role_key: string;
+  role_label: string;
+  priority: number;
+  updated_at: string | null;
+};
+
+export type ADOUItem = { ou: string; dn: string };
+
+export async function listAdOUs(): Promise<RcResponse<{ items: ADOUItem[] }>> {
+  return getJson("/ad-auth/admin/ad/ous");
+}
+
+export async function listAdOUMappings(): Promise<RcResponse<{ items: ADOUMappingItem[] }>> {
+  return getJson("/admin/users/ad-ou-mappings");
+}
+
+export async function upsertAdOUMapping(body: {
+  ou_name: string;
+  role_key: string;
+  priority: number;
+}): Promise<RcResponse<ADOUMappingItem>> {
+  return postJson("/admin/users/ad-ou-mappings", body);
+}
+
+export async function deleteAdOUMapping(ouName: string): Promise<RcResponse<unknown>> {
+  return deleteJson(`/admin/users/ad-ou-mappings/${encodeURIComponent(ouName)}`);
+}
+
 export async function changeMyPassword(
   currentPassword: string,
   newPassword: string,

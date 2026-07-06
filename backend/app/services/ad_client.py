@@ -70,6 +70,7 @@ class ADUserAttrs:
     title: str | None = None
     disabled: bool = False
     groups: list[str] = field(default_factory=list)
+    ou: str | None = None
     raw: dict = field(default_factory=dict)
 
 
@@ -115,6 +116,20 @@ def _domain_root_from_dn(dn: str) -> str:
     """
     dc_parts = [part.strip() for part in dn.split(",") if part.strip().lower().startswith("dc=")]
     return ",".join(dc_parts) if dc_parts else dn
+
+
+def _direct_ou_from_dn(dn: str) -> str | None:
+    """Extract the user's direct OU name from their distinguished name.
+
+    ``CN=曹策,OU=信息技术部,OU=人力行政中心,...`` -> ``信息技术部``.
+    Returns the first (leftmost) OU= component, which is the container the user
+    directly lives in.
+    """
+    for part in dn.split(","):
+        part = part.strip()
+        if part.lower().startswith("ou="):
+            return part[3:].strip() or None
+    return None
 
 
 def _member_of_cns(value: object) -> list[str]:
@@ -304,6 +319,7 @@ class ADClient:
             entry = svc.entries[0]
             user_dn = entry.entry_dn
             attrs = self._attr_map(entry.entry_attributes_as_dict)
+            attrs.ou = _direct_ou_from_dn(user_dn)
             # Resolve full group membership (including nested parent groups) via
             # LDAP_MATCHING_RULE_IN_CHAIN so subgroup members get parent-group roles.
             attrs.groups = self._resolve_all_groups(svc, user_dn)
@@ -349,6 +365,7 @@ class ADClient:
                 # Resolve nested group membership for batch sync too.
                 user_dn = item.get("dn") or ""
                 if user_dn:
+                    user_attrs.ou = _direct_ou_from_dn(user_dn)
                     try:
                         user_attrs.groups = self._resolve_all_groups(svc, user_dn)
                     except Exception:  # noqa: BLE001
@@ -385,4 +402,34 @@ class ADClient:
         finally:
             svc.unbind()
         out.sort(key=lambda g: g["cn"].lower())
+        return out
+
+    def list_ous(self, base_dn: str | None = None) -> list[dict[str, str]]:
+        """List AD organizational units (OU name + DN) for the OU mapping picker.
+
+        Searches under AD_BASE_DN by default (that's where users live); override
+        via base_dn to broaden the search.
+        """
+        base = base_dn or self._s.ad_base_dn
+        svc = self._connect(self._s.ad_bind_dn or None, self._s.ad_bind_password or None)
+        out: list[dict[str, str]] = []
+        try:
+            entries = svc.extend.standard.paged_search(
+                search_base=base,
+                search_filter="(objectCategory=organizationalUnit)",
+                search_scope=SUBTREE,
+                attributes=["ou"],
+                paged_size=self._s.ad_page_size,
+                generator=True,
+            )
+            for item in entries:
+                if item.get("type") != "searchResEntry":
+                    continue
+                a = item.get("attributes") or {}
+                ou = _first(a.get("ou"))
+                if ou:
+                    out.append({"ou": ou, "dn": item.get("dn") or ""})
+        finally:
+            svc.unbind()
+        out.sort(key=lambda o: o["ou"].lower())
         return out

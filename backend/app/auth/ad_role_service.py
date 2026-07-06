@@ -1,4 +1,9 @@
-"""AD group -> database role mapping and resolution (006-ad-auth)."""
+"""AD group -> database role mapping and unified role resolution (006-ad-auth).
+
+Role resolution considers both group mappings (ad_role_mappings) and OU mappings
+(ad_ou_mappings). Both share the same priority space; the highest-priority match
+across both sources wins.
+"""
 
 from __future__ import annotations
 
@@ -53,23 +58,44 @@ async def delete_mapping(db: AsyncSession, ad_group: str) -> bool:
     return True
 
 
-async def resolve_role_from_groups(db: AsyncSession, groups: list[str]) -> Role | None:
-    if not groups:
+async def resolve_role_from_ad(
+    db: AsyncSession, groups: list[str], ou: str | None = None
+) -> Role | None:
+    """Resolve the highest-priority role across group and OU mappings.
+
+    Collects all matching mappings (group memberships + the user's direct OU),
+    then picks the one with the highest priority. Group and OU mappings share
+    the same priority space. Ties are resolved by iteration order (priority desc).
+    """
+    candidates: list[tuple[int, str, str]] = []  # (priority, role_key, source_label)
+
+    group_set = set(groups) if groups else set()
+    for mapping in await list_mappings(db):
+        if mapping.ad_group in group_set:
+            candidates.append((mapping.priority, mapping.role_key, f"group:{mapping.ad_group}"))
+
+    if ou:
+        from app.auth.ad_ou_service import list_mappings as list_ou_mappings
+        for mapping in await list_ou_mappings(db):
+            if mapping.ou_name == ou:
+                candidates.append((mapping.priority, mapping.role_key, f"ou:{mapping.ou_name}"))
+
+    if not candidates:
         return None
-    group_set = set(groups)
-    rows = await list_mappings(db)
-    for mapping in rows:
-        if mapping.ad_group not in group_set:
-            continue
-        role = await get_role(db, mapping.role_key)
+
+    # Highest priority wins; sort descending so the first resolved role is the winner.
+    candidates.sort(key=lambda c: c[0], reverse=True)
+    for _, role_key, source in candidates:
+        role = await get_role(db, role_key)
         if role is not None:
             return role
-        log.warning(
-            "AD mapping references missing role %r for group %r",
-            mapping.role_key,
-            mapping.ad_group,
-        )
+        log.warning("AD %s references missing role %r", source, role_key)
     return None
+
+
+async def resolve_role_from_groups(db: AsyncSession, groups: list[str]) -> Role | None:
+    """Backward-compatible wrapper: resolve by groups only (no OU)."""
+    return await resolve_role_from_ad(db, groups, ou=None)
 
 
 async def serialize_mapping(db: AsyncSession, m: ADRoleMapping) -> dict[str, Any]:

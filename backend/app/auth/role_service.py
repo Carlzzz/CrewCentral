@@ -6,6 +6,7 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.ad_ou_mapping import ADOUMapping
 from app.models.ad_role_mapping import ADRoleMapping
 from app.models.role import Role
 from app.models.role_menu_permission import RoleMenuPermission
@@ -212,13 +213,16 @@ async def update_role(
     return row
 
 
-async def role_reference_counts(db: AsyncSession, role: str) -> tuple[int, int]:
+async def role_reference_counts(db: AsyncSession, role: str) -> tuple[int, int, int]:
     nr = clean_role_key(role)
     user_count = await db.scalar(select(func.count()).select_from(UserRole).where(UserRole.role == nr))
     mapping_count = await db.scalar(
         select(func.count()).select_from(ADRoleMapping).where(ADRoleMapping.role_key == nr)
     )
-    return int(user_count or 0), int(mapping_count or 0)
+    ou_count = await db.scalar(
+        select(func.count()).select_from(ADOUMapping).where(ADOUMapping.role_key == nr)
+    )
+    return int(user_count or 0), int(mapping_count or 0), int(ou_count or 0)
 
 
 async def delete_role(db: AsyncSession, key: str) -> tuple[bool, str]:
@@ -227,11 +231,13 @@ async def delete_role(db: AsyncSession, key: str) -> tuple[bool, str]:
         return False, "角色不存在"
     if row.is_system:
         return False, "系统内置角色不能删除"
-    user_count, mapping_count = await role_reference_counts(db, row.key)
+    user_count, mapping_count, ou_count = await role_reference_counts(db, row.key)
     if user_count:
         return False, f"该角色正在被 {user_count} 个用户使用，不能删除"
     if mapping_count:
         return False, f"该角色已被 {mapping_count} 个 AD 组映射引用，不能删除"
+    if ou_count:
+        return False, f"该角色已被 {ou_count} 个 AD OU 映射引用，不能删除"
     menu = await db.get(RoleMenuPermission, row.key)
     if menu is not None:
         await db.delete(menu)

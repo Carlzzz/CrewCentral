@@ -13,7 +13,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.adapters.base import AuthAdapter
-from app.auth.ad_role_service import resolve_role_from_groups
+from app.auth.ad_role_service import resolve_role_from_ad
 from app.auth.role_service import get_role, set_user_role
 from app.core.config import get_settings
 from app.models.user import User
@@ -73,7 +73,7 @@ async def sync_user_from_ad(db: AsyncSession, attrs: ADUserAttrs) -> User:
         )
         db.add(user)
         await db.flush()
-        await _apply_ad_role(db, user, attrs.groups, is_new=True)
+        await _apply_ad_role(db, user, attrs.groups, is_new=True, ou=attrs.ou)
         await db.flush()
         return user
 
@@ -88,22 +88,24 @@ async def sync_user_from_ad(db: AsyncSession, attrs: ADUserAttrs) -> User:
         user.title = attrs.title
     if attrs.email and not user.email:
         user.email = attrs.email
-    await _apply_ad_role(db, user, attrs.groups)
+    await _apply_ad_role(db, user, attrs.groups, ou=attrs.ou)
     await db.flush()
     return user
 
 
-async def _apply_ad_role(db: AsyncSession, user: User, groups: list[str], *, is_new: bool = False) -> None:
-    """Set the user's role from mapped AD groups unless the role is manually locked.
+async def _apply_ad_role(
+    db: AsyncSession, user: User, groups: list[str], *, is_new: bool = False, ou: str | None = None
+) -> None:
+    """Set the user's role from mapped AD groups/OU unless the role is manually locked.
 
     ``role_locked`` (set when an admin edits the role in the UI) takes precedence,
-    so AD login/sync never overrides a manual assignment. Only groups that have a
-    mapping affect the role; unmapped-only users are left untouched, except for
-    new users who default to ``viewer``.
+    so AD login/sync never overrides a manual assignment. Group and OU mappings
+    share the same priority space; the highest-priority match wins. Unmapped-only
+    users are left untouched, except for new users who default to ``viewer``.
     """
     if user.role_locked:
         return
-    role = await resolve_role_from_groups(db, groups)
+    role = await resolve_role_from_ad(db, groups, ou=ou)
     if role is None:
         if is_new:
             viewer = await get_role(db, "viewer")

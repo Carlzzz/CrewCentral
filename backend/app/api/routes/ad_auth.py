@@ -134,6 +134,21 @@ async def ad_groups(
     return rc_ok({"items": groups})
 
 
+@router.get("/admin/ad/ous")
+async def ad_ous(
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_session_permission("users.manage")),
+) -> dict:
+    """List AD organizational units so admins can pick when creating an OU→role mapping."""
+    _require_ad_enabled()
+    try:
+        client = ADClient(get_settings())
+        ous = await anyio.to_thread.run_sync(client.list_ous)
+    except ADError as exc:
+        return rc_err(exc.public_message)
+    return rc_ok({"items": ous})
+
+
 async def _existing_user_for(db: AsyncSession, ad_guid: str, account: str) -> User | None:
     from sqlalchemy import select
 

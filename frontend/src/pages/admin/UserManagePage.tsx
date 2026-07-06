@@ -4,19 +4,25 @@ import {
   createAdminUser,
   createRole,
   deleteAdminUser,
+  deleteAdOUMapping,
   deleteAdRoleMapping,
   deleteRole,
   listAdGroups,
   listAdminUsers,
+  listAdOUMappings,
+  listAdOUs,
   listAdRoleMappings,
   listRoles,
   patchAdminUser,
   runAdSync,
   unlockUserRole,
   updateRole,
+  upsertAdOUMapping,
   upsertAdRoleMapping,
   type AdminUserItem,
   type ADGroupItem,
+  type ADOUMappingItem,
+  type ADOUItem,
   type ADRoleMappingItem,
   type MenuKeyItem,
   type RoleItem,
@@ -42,7 +48,7 @@ function roleColor(role: string) {
   return "bg-indigo-50 text-indigo-700 border-indigo-200";
 }
 
-type Tab = "users" | "roles" | "ad";
+type Tab = "users" | "roles" | "ad" | "adou";
 
 export default function UserManagePage() {
   const [tab, setTab] = useState<Tab>("users");
@@ -68,6 +74,10 @@ export default function UserManagePage() {
   const [adGroups, setAdGroups] = useState<ADGroupItem[]>([]);
   const [editingMapping, setEditingMapping] = useState<ADRoleMappingItem | null>(null);
   const [syncing, setSyncing] = useState(false);
+
+  const [ouMappings, setOUMappings] = useState<ADOUMappingItem[]>([]);
+  const [adOUs, setAdOUs] = useState<ADOUItem[]>([]);
+  const [editingOUMapping, setEditingOUMapping] = useState<ADOUMappingItem | null>(null);
 
   function flash(type: "success" | "error", text: string) {
     setMessage({ type, text });
@@ -100,6 +110,7 @@ export default function UserManagePage() {
   useEffect(() => {
     if (tab === "roles" && roles.length === 0) void loadRoles();
     if (tab === "ad" && adMappings.length === 0) void loadAdMappings();
+    if (tab === "adou" && ouMappings.length === 0) void loadOUMappings();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
@@ -257,6 +268,25 @@ export default function UserManagePage() {
   async function openNewMapping() {
     if (adGroups.length === 0) await loadAdMappings();
     setEditingMapping({ ad_group: "", role_key: roles.find((r) => r.key === "viewer")?.key || "viewer", role_label: "", priority: 0, updated_at: null });
+  }
+
+  async function loadOUMappings() {
+    const res = await listAdOUMappings();
+    if (res.rc === 0 && res.data) setOUMappings(res.data.items);
+    const o = await listAdOUs();
+    if (o.rc === 0 && o.data) setAdOUs(o.data.items);
+  }
+
+  async function onDeleteOUMapping(ouName: string) {
+    if (!confirm(`删除 OU「${ouName}」的角色映射？`)) return;
+    const res = await deleteAdOUMapping(ouName);
+    flash(res.rc === 0 ? "success" : "error", res.message || (res.rc === 0 ? "已删除" : "删除失败"));
+    if (res.rc === 0) await loadOUMappings();
+  }
+
+  async function openNewOUMapping() {
+    if (adOUs.length === 0) await loadOUMappings();
+    setEditingOUMapping({ ou_name: "", role_key: roles.find((r) => r.key === "viewer")?.key || "viewer", role_label: "", priority: 0, updated_at: null });
   }
 
   function roleBadge(role: string, label?: string) {
@@ -469,7 +499,7 @@ export default function UserManagePage() {
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-bold text-slate-800">AD 组 → 角色映射</h3>
-            <p className="text-xs text-slate-400 mt-0.5">用户登录/同步时，按命中组的最高优先级决定角色。数字越大优先级越高。</p>
+            <p className="text-xs text-slate-400 mt-0.5">用户登录/同步时，组映射和 OU 映射统一比较优先级，取最高的。数字越大优先级越高。</p>
           </div>
           <button type="button" onClick={() => void openNewMapping()} className="rounded-lg bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-500 transition shadow-sm">新增映射</button>
         </div>
@@ -502,6 +532,112 @@ export default function UserManagePage() {
               ))}
             </tbody>
           </table>
+        </div>
+      </div>
+    );
+  }
+
+  function renderAdOUTab() {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-bold text-slate-800">AD OU → 角色映射</h3>
+            <p className="text-xs text-slate-400 mt-0.5">OU 映射和安全组映射统一优先级，取最高的。一个用户只属于一个 OU，适合按部门定基线角色。</p>
+          </div>
+          <button type="button" onClick={() => void openNewOUMapping()} className="rounded-lg bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-500 transition shadow-sm">新增映射</button>
+        </div>
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          <table className="min-w-full text-left text-sm">
+            <thead className="bg-slate-50 text-slate-500 font-semibold uppercase tracking-wider text-xs border-b border-slate-100">
+              <tr>
+                <th className="px-4 py-3">OU 名称</th>
+                <th className="px-4 py-3">目标角色</th>
+                <th className="px-4 py-3">优先级</th>
+                <th className="px-4 py-3 text-right">操作</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {ouMappings.length === 0 ? (
+                <tr><td className="px-4 py-8 text-center text-slate-400" colSpan={4}>暂无映射，点击「新增映射」开始配置</td></tr>
+              ) : ouMappings.map((m) => (
+                <tr key={m.ou_name} className="hover:bg-slate-50 transition-colors">
+                  <td className="px-4 py-3.5 font-mono text-xs text-slate-700">{m.ou_name}</td>
+                  <td className="px-4 py-3.5">{roleBadge(m.role_key, m.role_label || undefined)}</td>
+                  <td className="px-4 py-3.5 text-slate-600">{m.priority}</td>
+                  <td className="px-4 py-3.5 text-right whitespace-nowrap space-x-1">
+                    <button type="button" onClick={() => setEditingOUMapping({ ...m })} className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 transition">编辑</button>
+                    <button type="button" onClick={() => void onDeleteOUMapping(m.ou_name)} className="rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 text-xs font-medium text-rose-600 hover:bg-rose-50 transition">删除</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
+  function renderOUMappingModal() {
+    if (!editingOUMapping) return null;
+    const m = editingOUMapping;
+    const isNew = !ouMappings.some((x) => x.ou_name === m.ou_name);
+    const setM = (patch: Partial<ADOUMappingItem>) => setEditingOUMapping((prev) => (prev ? { ...prev, ...patch } : prev));
+    const save = async () => {
+      if (!m.ou_name.trim()) { flash("error", "请选择 OU"); return; }
+      const res = await upsertAdOUMapping({ ou_name: m.ou_name.trim(), role_key: m.role_key, priority: m.priority });
+      flash(res.rc === 0 ? "success" : "error", res.message || (res.rc === 0 ? "已保存" : "保存失败"));
+      if (res.rc === 0) { setEditingOUMapping(null); await loadOUMappings(); }
+    };
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="absolute inset-0 bg-black/40" onClick={() => setEditingOUMapping(null)} />
+        <div className="relative w-full max-w-lg rounded-xl bg-white p-6 shadow-xl space-y-5 mx-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-bold text-slate-900">{isNew ? "新增" : "编辑"} AD OU 映射</h3>
+            <button type="button" onClick={() => setEditingOUMapping(null)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button>
+          </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-500">OU 名称 *</label>
+              <select
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-mono focus:border-sky-300 focus:ring-1 focus:ring-sky-200 outline-none disabled:bg-slate-50"
+                value={m.ou_name}
+                disabled={!isNew}
+                onChange={(e) => setM({ ou_name: e.target.value })}
+                aria-label="选择 OU"
+              >
+                <option value="">{adOUs.length === 0 ? "正在加载 OU..." : "请选择 OU"}</option>
+                {adOUs.map((o) => <option key={o.dn} value={o.ou}>{o.ou}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-500">目标角色</label>
+              <select
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-sky-300 focus:ring-1 focus:ring-sky-200 outline-none"
+                value={m.role_key}
+                onChange={(e) => setM({ role_key: e.target.value })}
+                aria-label="选择目标角色"
+              >
+                {roles.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-500 flex items-center gap-1" title="OU 映射和安全组映射统一比较优先级。数字越大优先级越高（0-1000）；用户属于多个组/OU 时取最高优先级的角色。">
+                优先级
+                <span className="text-slate-300 cursor-help text-[10px]">ⓘ</span>
+              </label>
+              <input type="number" min={0} max={1000} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-sky-300 focus:ring-1 focus:ring-sky-200 outline-none" value={m.priority} onChange={(e) => setM({ priority: Number(e.target.value) || 0 })} />
+              <p className="text-[11px] text-slate-400">数字越大优先级越高（0-1000）。OU 映射和安全组映射统一比较。</p>
+            </div>
+          </div>
+          <p className="rounded-lg bg-slate-50 border border-slate-100 px-3 py-2 text-xs text-slate-500">
+            菜单权限和管理员标记来自所选角色；如需调整，请在「角色管理」中修改角色配置。
+          </p>
+          <div className="flex gap-2 pt-2 border-t border-slate-100">
+            <button type="button" onClick={() => void save()} className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-500 transition shadow-sm">保存</button>
+            <button type="button" onClick={() => setEditingOUMapping(null)} className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition">取消</button>
+          </div>
         </div>
       </div>
     );
@@ -713,6 +849,7 @@ export default function UserManagePage() {
             ["users", "用户"],
             ["roles", "角色管理"],
             ["ad", "AD 组映射"],
+            ["adou", "AD OU 映射"],
           ] as [Tab, string][]).map(([key, label]) => (
             <button
               key={key}
@@ -744,10 +881,12 @@ export default function UserManagePage() {
         {tab === "users" && renderUsersTab()}
         {tab === "roles" && renderRolesTab()}
         {tab === "ad" && renderAdTab()}
+        {tab === "adou" && renderAdOUTab()}
       </div>
       {renderEditUserModal()}
       {renderRoleModal()}
       {renderMappingModal()}
+      {renderOUMappingModal()}
     </div>
   );
 }

@@ -101,7 +101,7 @@ async def _serialize_user(db: AsyncSession, u: User) -> dict[str, Any]:
 async def _serialize_role(db: AsyncSession, role: Role) -> dict[str, Any]:
     """Fetch menu keys + reference counts, then call the sync serialize_role."""
     menu_keys = await menus_for_role(db, role.key)
-    user_count, ad_mapping_count = await role_reference_counts(db, role.key)
+    user_count, ad_mapping_count, _ou_count = await role_reference_counts(db, role.key)
     return serialize_role(role, menu_keys, user_count, ad_mapping_count)
 
 
@@ -400,3 +400,53 @@ async def delete_ad_role_mapping(
         return rc_err("映射不存在")
     await db.commit()
     return rc_ok(message="映射已删除")
+
+
+# --- AD OU → role mappings (006-ad-auth) ---
+
+class ADOUMappingBody(BaseModel):
+    ou_name: str = Field(..., min_length=1, max_length=255)
+    role_key: str = Field(..., min_length=3, max_length=64)
+    priority: int = Field(default=0, ge=0, le=1000)
+
+
+@router.get("/ad-ou-mappings")
+async def list_ad_ou_mappings(
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_session_permission("users.manage")),
+) -> dict[str, Any]:
+    from app.auth.ad_ou_service import list_mappings as list_ou_mappings, serialize_mapping as serialize_ou_mapping
+    rows = await list_ou_mappings(db)
+    return rc_ok({"items": [await serialize_ou_mapping(db, m) for m in rows]})
+
+
+@router.post("/ad-ou-mappings")
+async def upsert_ad_ou_mapping(
+    body: ADOUMappingBody,
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_session_permission("users.manage")),
+) -> dict[str, Any]:
+    from app.auth.ad_ou_service import upsert_mapping as upsert_ou_mapping, serialize_mapping as serialize_ou_mapping
+    try:
+        m = await upsert_ou_mapping(
+            db, ou_name=body.ou_name, role_key=body.role_key, priority=body.priority
+        )
+    except ValueError:
+        return rc_err("角色不存在")
+    await db.commit()
+    await db.refresh(m)
+    return rc_ok(await serialize_ou_mapping(db, m), message="OU 映射已保存")
+
+
+@router.delete("/ad-ou-mappings/{ou_name}")
+async def delete_ad_ou_mapping(
+    ou_name: str,
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_session_permission("users.manage")),
+) -> dict[str, Any]:
+    from app.auth.ad_ou_service import delete_mapping as delete_ou_mapping
+    ok = await delete_ou_mapping(db, ou_name)
+    if not ok:
+        return rc_err("映射不存在")
+    await db.commit()
+    return rc_ok(message="OU 映射已删除")
