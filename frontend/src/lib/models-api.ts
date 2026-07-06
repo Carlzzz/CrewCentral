@@ -7,6 +7,8 @@ export type AvailableModelItem = {
 
 export type RoleModelPermissionItem = {
   role: string;
+  label: string;
+  is_system: boolean;
   allowed_models: string[] | null;
 };
 

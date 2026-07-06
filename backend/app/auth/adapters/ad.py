@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.adapters.base import AuthAdapter
 from app.auth.ad_role_service import resolve_role_from_groups
-from app.auth.role_service import set_user_role_raw
+from app.auth.role_service import get_role, set_user_role
 from app.core.config import get_settings
 from app.models.user import User
 from app.services.ad_client import ADClient, ADUserAttrs
@@ -73,7 +73,7 @@ async def sync_user_from_ad(db: AsyncSession, attrs: ADUserAttrs) -> User:
         )
         db.add(user)
         await db.flush()
-        await _apply_ad_role(db, user, attrs.groups)
+        await _apply_ad_role(db, user, attrs.groups, is_new=True)
         await db.flush()
         return user
 
@@ -93,21 +93,26 @@ async def sync_user_from_ad(db: AsyncSession, attrs: ADUserAttrs) -> User:
     return user
 
 
-async def _apply_ad_role(db: AsyncSession, user: User, groups: list[str]) -> None:
+async def _apply_ad_role(db: AsyncSession, user: User, groups: list[str], *, is_new: bool = False) -> None:
     """Set the user's role from mapped AD groups unless the role is manually locked.
 
     ``role_locked`` (set when an admin edits the role in the UI) takes precedence,
     so AD login/sync never overrides a manual assignment. Only groups that have a
-    mapping affect the role; unmapped-only users are left untouched.
+    mapping affect the role; unmapped-only users are left untouched, except for
+    new users who default to ``viewer``.
     """
     if user.role_locked:
         return
-    resolved = await resolve_role_from_groups(db, groups)
-    if resolved is None:
+    role = await resolve_role_from_groups(db, groups)
+    if role is None:
+        if is_new:
+            viewer = await get_role(db, "viewer")
+            if viewer is not None:
+                await set_user_role(db, user_id=user.id, role="viewer")
+                user.is_admin = viewer.is_admin
         return
-    role, is_admin = resolved
-    await set_user_role_raw(db, user_id=user.id, role=role)
-    user.is_admin = is_admin
+    await set_user_role(db, user_id=user.id, role=role.key)
+    user.is_admin = role.is_admin
 
 
 async def _match_local_by_email_prefix(db: AsyncSession, account: str) -> User | None:

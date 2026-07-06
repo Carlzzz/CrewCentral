@@ -10,7 +10,7 @@ from app.auth.role_model_permission_service import (
     get_role_model_permissions,
     set_role_model_permissions,
 )
-from app.auth.role_service import ROLE_MENUS
+from app.auth.role_service import get_role, list_roles
 from app.core.config import get_settings
 from app.db.session import get_db
 from app.models.user import User
@@ -50,9 +50,15 @@ async def list_role_model_permissions(
 ) -> dict:
     """获取所有角色及其模型权限配置"""
     items = []
-    for role in ROLE_MENUS:
-        allowed = await get_role_model_permissions(db, role)
-        items.append({"role": role, "allowed_models": allowed})
+    roles = await list_roles(db)
+    for role_row in roles:
+        allowed = await get_role_model_permissions(db, role_row.key)
+        items.append({
+            "role": role_row.key,
+            "label": role_row.label,
+            "is_system": role_row.is_system,
+            "allowed_models": allowed,
+        })
     return rc_ok({"items": items})
 
 
@@ -64,10 +70,11 @@ async def set_role_permissions_route(
     _admin: User = Depends(require_session_permission("models.manage")),
 ) -> dict:
     """设置指定角色的模型权限。传入 null 表示无限制。不允许修改 super_admin。"""
-    if role not in ROLE_MENUS:
-        return rc_err("无效的角色")
-    if role == "super_admin":
+    role_row = await get_role(db, role)
+    if role_row is None:
+        return rc_err("角色不存在")
+    if role_row.key == "super_admin":
         return rc_err("super_admin 始终无限制，不可修改")
-    await set_role_model_permissions(db, role, body.allowed_models)
+    await set_role_model_permissions(db, role_row.key, body.allowed_models)
     await db.commit()
     return rc_ok(message="权限更新成功")

@@ -63,12 +63,24 @@ export type ADSyncResult = {
   dry_run: boolean;
 };
 
+export type RoleItem = {
+  key: string;
+  label: string;
+  is_system: boolean;
+  is_admin: boolean;
+  sort_order: number;
+  menu_keys: string[];
+  user_count: number;
+  ad_mapping_count: number;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
 export type ADRoleMappingItem = {
   ad_group: string;
-  label: string | null;
-  menu_keys: string[];
+  role_key: string;
+  role_label: string;
   priority: number;
-  is_admin: boolean;
   updated_at: string | null;
 };
 
@@ -94,10 +106,8 @@ export async function listAdRoleMappings(): Promise<
 
 export async function upsertAdRoleMapping(body: {
   ad_group: string;
-  label?: string;
-  menu_keys: string[];
+  role_key: string;
   priority: number;
-  is_admin: boolean;
 }): Promise<RcResponse<ADRoleMappingItem>> {
   return postJson("/admin/users/ad-role-mappings", body);
 }
@@ -146,28 +156,31 @@ export async function uploadReleasePackage(file: File): Promise<
   return { rc: 1, message: typeof obj.detail === "string" ? obj.detail : `上传失败（HTTP ${res.status}）` };
 }
 
-// --- Role menu permissions ---
+// --- Roles CRUD ---
 
 export type MenuKeyItem = { key: string; label: string };
 
-export type RoleMenuPermItem = {
-  role: string;
-  menu_keys: string[];
-  is_default: boolean;
-};
-
-export async function listRoleMenuPermissions(): Promise<
-  RcResponse<{ items: RoleMenuPermItem[]; all_menus: MenuKeyItem[] }>
-> {
-  return getJson("/admin/users/roles/menu-permissions");
+export async function listRoles(): Promise<RcResponse<{ items: RoleItem[]; all_menus: MenuKeyItem[] }>> {
+  return getJson("/admin/users/roles");
 }
 
-export async function setRoleMenuPermissions(
-  role: string,
-  menuKeys: string[],
-): Promise<RcResponse<unknown>> {
-  return postJson(`/admin/users/roles/${encodeURIComponent(role)}/menu-permissions`, {
-    menu_keys: menuKeys,
-  });
+export async function createRole(body: {
+  key: string;
+  label: string;
+  is_admin: boolean;
+  menu_keys: string[];
+}): Promise<RcResponse<RoleItem>> {
+  return postJson("/admin/users/roles", body);
+}
+
+export async function updateRole(
+  key: string,
+  body: { label: string; is_admin: boolean; menu_keys: string[] },
+): Promise<RcResponse<RoleItem>> {
+  return patchJson(`/admin/users/roles/${encodeURIComponent(key)}`, body);
+}
+
+export async function deleteRole(key: string): Promise<RcResponse<unknown>> {
+  return deleteJson(`/admin/users/roles/${encodeURIComponent(key)}`);
 }
 

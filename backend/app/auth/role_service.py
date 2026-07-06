@@ -1,14 +1,32 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.ad_role_mapping import ADRoleMapping
+from app.models.role import Role
+from app.models.role_menu_permission import RoleMenuPermission
 from app.models.user_role import UserRole
 
+ROLE_KEY_RE = re.compile(r"^[a-z][a-z0-9_]{2,63}$")
+
 ROLE_MENUS: dict[str, list[str]] = {
-    "super_admin": ["home", "download", "docs", "skills", "skills.assignments", "devices", "releases", "docs.manage", "users.manage", "usage", "models.manage"],
+    "super_admin": [
+        "home",
+        "download",
+        "docs",
+        "skills",
+        "skills.assignments",
+        "devices",
+        "releases",
+        "docs.manage",
+        "users.manage",
+        "usage",
+        "models.manage",
+    ],
     "skill_admin": ["home", "download", "docs", "skills", "skills.assignments"],
     "ops_admin": ["home", "download", "docs", "devices", "releases", "usage"],
     "docs_admin": ["home", "download", "docs", "docs.manage"],
@@ -29,95 +47,124 @@ ALL_MENU_KEYS: list[dict[str, str]] = [
     {"key": "models.manage", "label": "模型权限管理"},
 ]
 
-ADMIN_LIKE_ROLES = {"super_admin", "skill_admin", "ops_admin", "docs_admin"}
-
-ROLE_LABELS: dict[str, str] = {
-    "super_admin": "超级管理员",
-    "skill_admin": "技能管理员",
-    "ops_admin": "运维管理员",
-    "docs_admin": "文档管理员",
-    "viewer": "普通用户",
+BUILTIN_ROLE_META: dict[str, dict[str, Any]] = {
+    "super_admin": {"label": "超级管理员", "is_admin": True, "sort_order": 10},
+    "skill_admin": {"label": "技能管理员", "is_admin": True, "sort_order": 20},
+    "ops_admin": {"label": "运维管理员", "is_admin": True, "sort_order": 30},
+    "docs_admin": {"label": "文档管理员", "is_admin": True, "sort_order": 40},
+    "viewer": {"label": "普通用户", "is_admin": False, "sort_order": 100},
 }
+
+ADMIN_LIKE_ROLES = {k for k, v in BUILTIN_ROLE_META.items() if v["is_admin"]}
+ROLE_LABELS = {k: str(v["label"]) for k, v in BUILTIN_ROLE_META.items()}
+_VALID_MENU_KEYS = {m["key"] for m in ALL_MENU_KEYS}
+
+
+def clean_role_key(key: str) -> str:
+    return key.strip().lower()
+
+
+def is_valid_role_key(key: str) -> bool:
+    return bool(ROLE_KEY_RE.fullmatch(clean_role_key(key)))
+
+
+def clean_menu_keys(menu_keys: list[str]) -> list[str]:
+    out: list[str] = []
+    for key in menu_keys:
+        if key in _VALID_MENU_KEYS and key not in out:
+            out.append(key)
+    return out
 
 
 def normalize_role(role: str | None) -> str:
-    r = (role or "").strip().lower()
-    return r if r in ROLE_MENUS else "viewer"
+    # Compatibility helper for old callers. New validation should use get_role().
+    r = clean_role_key(role or "")
+    return r or "viewer"
+
+
+async def ensure_builtin_roles(db: AsyncSession) -> None:
+    for key, meta in BUILTIN_ROLE_META.items():
+        row = await db.get(Role, key)
+        if row is None:
+            row = Role(
+                key=key,
+                label=str(meta["label"]),
+                is_system=True,
+                is_admin=bool(meta["is_admin"]),
+                sort_order=int(meta["sort_order"]),
+            )
+            db.add(row)
+            await set_role_menu_config(db, key, ROLE_MENUS[key])
+        else:
+            row.is_system = True
+            row.sort_order = int(meta["sort_order"])
+            if key == "super_admin":
+                row.is_admin = True
+    await db.flush()
+
+
+async def list_roles(db: AsyncSession) -> list[Role]:
+    await ensure_builtin_roles(db)
+    rows = await db.scalars(select(Role).order_by(Role.sort_order, Role.key))
+    return list(rows.all())
+
+
+async def get_role(db: AsyncSession, key: str) -> Role | None:
+    await ensure_builtin_roles(db)
+    return await db.get(Role, clean_role_key(key))
 
 
 async def get_user_role(db: AsyncSession, *, user_id: str, is_admin: bool) -> str:
     row = await db.scalar(select(UserRole.role).where(UserRole.user_id == user_id))
-    if row:
-        # Do NOT normalize: the stored value may be a dynamic AD-group role whose
-        # menus are resolved separately. normalize_role would collapse it to viewer.
+    if row and await get_role(db, str(row)) is not None:
         return str(row)
     return "super_admin" if is_admin else "viewer"
 
 
-async def set_user_role(db: AsyncSession, *, user_id: str, role: str) -> str:
-    nr = normalize_role(role)
-    await set_user_role_raw(db, user_id=user_id, role=nr)
+async def set_user_role(db: AsyncSession, *, user_id: str, role: str) -> str | None:
+    nr = clean_role_key(role)
+    if await get_role(db, nr) is None:
+        return None
+    existing = await db.get(UserRole, user_id)
+    if existing:
+        existing.role = nr
+    else:
+        db.add(UserRole(user_id=user_id, role=nr))
     return nr
 
 
-async def set_user_role_raw(db: AsyncSession, *, user_id: str, role: str) -> str:
-    """Store a role verbatim (used for dynamic AD-group roles that aren't built-in)."""
-    existing = await db.get(UserRole, user_id)
-    if existing:
-        existing.role = role
-    else:
-        db.add(UserRole(user_id=user_id, role=role))
-    return role
+async def set_user_role_raw(db: AsyncSession, *, user_id: str, role: str) -> str | None:
+    return await set_user_role(db, user_id=user_id, role=role)
 
 
 async def menus_for_role(db: AsyncSession, role: str) -> list[str]:
-    """获取角色的菜单权限。
-
-    super_admin 始终全部；内置角色先查 DB 覆盖、无则回退默认；否则按动态 AD
-    组角色（ad_role_mappings）解析；都不匹配回退 viewer。
-    """
-    if role == "super_admin":
+    nr = clean_role_key(role)
+    if nr == "super_admin":
         return ROLE_MENUS["super_admin"]
-
-    if role in ROLE_MENUS:
-        from app.models.role_menu_permission import RoleMenuPermission
-        row = await db.scalar(
-            select(RoleMenuPermission.menu_keys).where(RoleMenuPermission.role == role)
-        )
-        if row is not None:
-            keys_str = str(row).strip()
-            return [k.strip() for k in keys_str.split(",") if k.strip()] if keys_str else []
-        return ROLE_MENUS[role]
-
-    # Dynamic AD-group role: menus live on the mapping row.
-    from app.auth.ad_role_service import menu_keys_for_ad_role
-    ad_menus = await menu_keys_for_ad_role(db, role)
-    if ad_menus is not None:
-        return ad_menus
-    return ROLE_MENUS["viewer"]
+    if await get_role(db, nr) is None:
+        return ROLE_MENUS["viewer"]
+    row = await db.get(RoleMenuPermission, nr)
+    if row is not None:
+        keys = [k.strip() for k in row.menu_keys.split(",") if k.strip()]
+        return clean_menu_keys(keys)
+    return ROLE_MENUS.get(nr, ROLE_MENUS["viewer"])
 
 
 async def get_role_menu_config(db: AsyncSession, role: str) -> dict[str, Any]:
-    """获取角色菜单配置，返回 {role, menu_keys, is_default}。"""
-    nr = normalize_role(role)
-    from app.models.role_menu_permission import RoleMenuPermission
-    row = await db.scalar(
-        select(RoleMenuPermission.menu_keys).where(RoleMenuPermission.role == nr)
-    )
+    nr = clean_role_key(role)
+    r = await get_role(db, nr)
+    if r is None:
+        nr = "viewer"
+    row = await db.get(RoleMenuPermission, nr)
     if row is not None:
-        keys = [k.strip() for k in str(row).split(",") if k.strip()]
+        keys = clean_menu_keys([k.strip() for k in row.menu_keys.split(",") if k.strip()])
         return {"role": nr, "menu_keys": keys, "is_default": False}
-    return {"role": nr, "menu_keys": ROLE_MENUS.get(nr, ROLE_MENUS["viewer"]), "is_default": True}
+    return {"role": nr, "menu_keys": ROLE_MENUS.get(nr, []), "is_default": True}
 
 
 async def set_role_menu_config(db: AsyncSession, role: str, menu_keys: list[str]) -> None:
-    """设置角色菜单权限。不允许修改 super_admin。"""
-    nr = normalize_role(role)
-    if nr == "super_admin":
-        return
-    from app.models.role_menu_permission import RoleMenuPermission
-    valid_keys = {m["key"] for m in ALL_MENU_KEYS}
-    clean = [k for k in menu_keys if k in valid_keys]
+    nr = clean_role_key(role)
+    clean = clean_menu_keys(menu_keys)
     existing = await db.get(RoleMenuPermission, nr)
     if existing:
         existing.menu_keys = ",".join(clean)
@@ -126,6 +173,92 @@ async def set_role_menu_config(db: AsyncSession, role: str, menu_keys: list[str]
     await db.flush()
 
 
+async def create_role(
+    db: AsyncSession,
+    *,
+    key: str,
+    label: str,
+    is_admin: bool,
+    menu_keys: list[str],
+) -> Role:
+    nr = clean_role_key(key)
+    if not is_valid_role_key(nr):
+        raise ValueError("invalid_role_key")
+    if await db.get(Role, nr) is not None:
+        raise ValueError("duplicate_role_key")
+    row = Role(key=nr, label=label.strip(), is_system=False, is_admin=is_admin, sort_order=200)
+    db.add(row)
+    await db.flush()
+    await set_role_menu_config(db, nr, menu_keys)
+    return row
+
+
+async def update_role(
+    db: AsyncSession,
+    *,
+    key: str,
+    label: str,
+    is_admin: bool,
+    menu_keys: list[str],
+) -> Role | None:
+    row = await get_role(db, key)
+    if row is None:
+        return None
+    row.label = label.strip()
+    if not row.is_system or row.key != "super_admin":
+        row.is_admin = is_admin
+    await set_role_menu_config(db, row.key, menu_keys)
+    await db.flush()
+    return row
+
+
+async def role_reference_counts(db: AsyncSession, role: str) -> tuple[int, int]:
+    nr = clean_role_key(role)
+    user_count = await db.scalar(select(func.count()).select_from(UserRole).where(UserRole.role == nr))
+    mapping_count = await db.scalar(
+        select(func.count()).select_from(ADRoleMapping).where(ADRoleMapping.role_key == nr)
+    )
+    return int(user_count or 0), int(mapping_count or 0)
+
+
+async def delete_role(db: AsyncSession, key: str) -> tuple[bool, str]:
+    row = await get_role(db, key)
+    if row is None:
+        return False, "角色不存在"
+    if row.is_system:
+        return False, "系统内置角色不能删除"
+    user_count, mapping_count = await role_reference_counts(db, row.key)
+    if user_count:
+        return False, f"该角色正在被 {user_count} 个用户使用，不能删除"
+    if mapping_count:
+        return False, f"该角色已被 {mapping_count} 个 AD 组映射引用，不能删除"
+    menu = await db.get(RoleMenuPermission, row.key)
+    if menu is not None:
+        await db.delete(menu)
+    await db.delete(row)
+    await db.flush()
+    return True, "角色已删除"
+
+
+def serialize_role(
+    role: Role,
+    menu_keys: list[str],
+    user_count: int = 0,
+    ad_mapping_count: int = 0,
+) -> dict[str, Any]:
+    return {
+        "key": role.key,
+        "label": role.label,
+        "is_system": role.is_system,
+        "is_admin": role.is_admin,
+        "sort_order": role.sort_order,
+        "menu_keys": menu_keys,
+        "user_count": user_count,
+        "ad_mapping_count": ad_mapping_count,
+        "created_at": role.created_at.isoformat() if role.created_at else None,
+        "updated_at": role.updated_at.isoformat() if role.updated_at else None,
+    }
+
+
 def serialize_role_payload(role: str, menu_permissions: list[str]) -> dict[str, Any]:
-    nr = normalize_role(role)
-    return {"role": nr, "menu_permissions": menu_permissions}
+    return {"role": clean_role_key(role), "menu_permissions": menu_permissions}
