@@ -56,6 +56,8 @@ class Settings(BaseSettings):
     """LDAP(S) server URL, e.g. ldap://dc.example.com:389 or ldaps://dc.example.com:636."""
     ad_base_dn: str = ""
     """Search base for user lookup, e.g. DC=example,DC=com."""
+    ad_group_base_dn: str = ""
+    """Search base for AD group picker. Defaults to the domain root inferred from ad_base_dn."""
     ad_bind_dn: str = ""
     """Service account DN used to search for user entries."""
     ad_bind_password: str = ""

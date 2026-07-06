@@ -108,6 +108,15 @@ def _first(value: object) -> str | None:
     return text or None
 
 
+def _domain_root_from_dn(dn: str) -> str:
+    """Infer the domain root DN from a possibly-narrow base DN.
+
+    ``OU=Users,OU=ambilight,DC=ambilight,DC=cc`` -> ``DC=ambilight,DC=cc``.
+    """
+    dc_parts = [part.strip() for part in dn.split(",") if part.strip().lower().startswith("dc=")]
+    return ",".join(dc_parts) if dc_parts else dn
+
+
 def _member_of_cns(value: object) -> list[str]:
     """Extract group CNs from a memberOf attribute (list of group DNs).
 
@@ -290,8 +299,12 @@ class ADClient:
             svc.unbind()
 
     def list_groups(self, base_dn: str | None = None) -> list[dict[str, str]]:
-        """List AD groups (CN + optional description) for the mapping picker."""
-        base = base_dn or self._s.ad_base_dn
+        """List AD groups (CN + optional description) for the mapping picker.
+
+        Uses AD_GROUP_BASE_DN when configured; otherwise searches the domain root
+        inferred from AD_BASE_DN so a narrow user OU does not hide group OUs.
+        """
+        base = base_dn or self._s.ad_group_base_dn or _domain_root_from_dn(self._s.ad_base_dn)
         svc = self._connect(self._s.ad_bind_dn or None, self._s.ad_bind_password or None)
         out: list[dict[str, str]] = []
         try:

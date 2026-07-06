@@ -230,6 +230,11 @@ export default function UserManagePage() {
     if (res.rc === 0) await loadAdMappings();
   }
 
+  async function openNewMapping() {
+    if (adGroups.length === 0) await loadAdMappings();
+    setEditingMapping({ ad_group: "", label: null, menu_keys: [], priority: 0, is_admin: false, updated_at: null });
+  }
+
   function roleBadge(role: string, label?: string) {
     return (
       <span
@@ -425,7 +430,7 @@ export default function UserManagePage() {
             <h3 className="text-sm font-bold text-slate-800">AD 组 → 角色映射</h3>
             <p className="text-xs text-slate-400 mt-0.5">用户登录/同步时，按命中组的最高优先级决定角色。数字越大优先级越高。</p>
           </div>
-          <button type="button" onClick={() => setEditingMapping({ ad_group: "", label: null, menu_keys: [], priority: 0, is_admin: false, updated_at: null })} className="rounded-lg bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-500 transition shadow-sm">新增映射</button>
+          <button type="button" onClick={() => void openNewMapping()} className="rounded-lg bg-sky-600 px-3 py-2 text-sm font-medium text-white hover:bg-sky-500 transition shadow-sm">新增映射</button>
         </div>
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
           <table className="min-w-full text-left text-sm">
@@ -566,10 +571,20 @@ export default function UserManagePage() {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-1">
               <label className="text-xs font-medium text-slate-500">AD 组 (CN) *</label>
-              <input list="ad-groups-list" className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-mono focus:border-sky-300 focus:ring-1 focus:ring-sky-200 outline-none disabled:bg-slate-50" value={m.ad_group} disabled={!isNew} onChange={(e) => setM({ ad_group: e.target.value })} placeholder="SG-IT" />
-              <datalist id="ad-groups-list">
-                {adGroups.map((g) => <option key={g.cn} value={g.cn}>{g.description}</option>)}
-              </datalist>
+              <select
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-mono focus:border-sky-300 focus:ring-1 focus:ring-sky-200 outline-none disabled:bg-slate-50"
+                value={m.ad_group}
+                disabled={!isNew}
+                onChange={(e) => setM({ ad_group: e.target.value })}
+                aria-label="选择 AD 组"
+              >
+                <option value="">{adGroups.length === 0 ? "正在加载 AD 组..." : "请选择 AD 组"}</option>
+                {adGroups.map((g) => (
+                  <option key={g.cn} value={g.cn}>
+                    {g.description ? `${g.cn} — ${g.description}` : g.cn}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-slate-500">显示名</label>
