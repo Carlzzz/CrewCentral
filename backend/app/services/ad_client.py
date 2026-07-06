@@ -138,6 +138,11 @@ def _member_of_cns(value: object) -> list[str]:
     return cns
 
 
+def _member_of_cns_from_dn_list(dns: list[str]) -> list[str]:
+    """Extract group CNs from a list of group DN strings (direct memberOf fallback)."""
+    return _member_of_cns(dns)
+
+
 class ADClient:
     def __init__(self, settings: Settings) -> None:
         self._s = settings
@@ -231,6 +236,49 @@ class ADClient:
             "memberOf",
         ]
 
+    def _group_search_base(self) -> str:
+        """Base DN for group lookups — group OU or inferred domain root."""
+        return self._s.ad_group_base_dn or _domain_root_from_dn(self._s.ad_base_dn)
+
+    def _resolve_all_groups(self, svc: Connection, user_dn: str) -> list[str]:
+        """Return all group CNs the user belongs to, including nested parent groups.
+
+        Uses LDAP_MATCHING_RULE_IN_CHAIN (1.2.840.113556.1.4.1941) so that a user
+        who is a member of a subgroup is also seen as a member of its parent
+        groups. Falls back to the direct ``memberOf`` attribute if disabled or
+        if the chain-rule query fails.
+        """
+        if not self._s.ad_nested_groups:
+            return _member_of_cns_from_dn_list(self._direct_member_of(svc, user_dn))
+        try:
+            svc.search(
+                search_base=self._group_search_base(),
+                search_filter=f"(member:1.2.840.113556.1.4.1941:={escape_filter_chars(user_dn)})",
+                search_scope=SUBTREE,
+                attributes=["cn"],
+            )
+            cns: list[str] = []
+            for entry in svc.entries:
+                cn = _first(entry.entry_attributes_as_dict.get("cn"))
+                if cn:
+                    cns.append(cn)
+            return cns
+        except LDAPException:
+            log.warning("Nested group query failed, falling back to direct memberOf")
+            return _member_of_cns_from_dn_list(self._direct_member_of(svc, user_dn))
+
+    def _direct_member_of(self, svc: Connection, user_dn: str) -> list[str]:
+        """Read the raw memberOf DN list for a user (direct membership only)."""
+        svc.search(
+            search_base=self._s.ad_base_dn,
+            search_filter=f"(distinguishedName={escape_filter_chars(user_dn)})",
+            search_scope=SUBTREE,
+            attributes=["memberOf"],
+        )
+        if not svc.entries:
+            return []
+        return list(svc.entries[0].entry_attributes_as_dict.get("memberOf") or [])
+
     def authenticate(self, account: str, password: str) -> ADUserAttrs:
         """Bind as the service account, locate the user, then re-bind as the user.
 
@@ -256,6 +304,9 @@ class ADClient:
             entry = svc.entries[0]
             user_dn = entry.entry_dn
             attrs = self._attr_map(entry.entry_attributes_as_dict)
+            # Resolve full group membership (including nested parent groups) via
+            # LDAP_MATCHING_RULE_IN_CHAIN so subgroup members get parent-group roles.
+            attrs.groups = self._resolve_all_groups(svc, user_dn)
         finally:
             svc.unbind()
 
@@ -292,9 +343,17 @@ class ADClient:
                     val = raw_attrs["objectGUID"]
                     merged["objectGUID"] = val[0] if isinstance(val, list) else val
                 try:
-                    yield self._attr_map(merged)
+                    user_attrs = self._attr_map(merged)
                 except ADError:
                     continue
+                # Resolve nested group membership for batch sync too.
+                user_dn = item.get("dn") or ""
+                if user_dn:
+                    try:
+                        user_attrs.groups = self._resolve_all_groups(svc, user_dn)
+                    except Exception:  # noqa: BLE001
+                        log.warning("Nested group resolve failed for %s", user_dn)
+                yield user_attrs
         finally:
             svc.unbind()
 

@@ -74,6 +74,8 @@ class Settings(BaseSettings):
     """Socket/bind timeout so an unreachable AD fails fast instead of blocking."""
     ad_page_size: int = 500
     """Paged-search page size for batch sync (AD default max is 1000)."""
+    ad_nested_groups: int = 1
+    """1 = resolve nested AD group membership via LDAP_MATCHING_RULE_IN_CHAIN."""
 
 
 @lru_cache
