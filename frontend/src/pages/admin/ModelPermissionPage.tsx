@@ -7,14 +7,6 @@ import {
   type RoleModelPermissionItem,
 } from "../../lib/models-api";
 
-const ROLE_LABELS: Record<string, string> = {
-  super_admin: "超级管理员",
-  skill_admin: "技能管理员",
-  ops_admin: "运维管理员",
-  docs_admin: "文档管理员",
-  viewer: "普通用户",
-};
-
 export default function ModelPermissionPage() {
   const [roles, setRoles] = useState<RoleModelPermissionItem[]>([]);
   const [availableModels, setAvailableModels] = useState<AvailableModelItem[]>([]);
@@ -72,7 +64,7 @@ export default function ModelPermissionPage() {
     try {
       const res = await setRoleModelPermissions(editingRole.role, payload);
       if (res.rc === 0) {
-        setMessage({ type: "success", text: `已保存「${ROLE_LABELS[editingRole.role] || editingRole.role}」的模型权限` });
+        setMessage({ type: "success", text: `已保存「${editingRole.label || editingRole.role}」的模型权限` });
         setEditingRole(null);
         await loadData();
       } else {
@@ -120,7 +112,7 @@ export default function ModelPermissionPage() {
                     return (
                       <tr key={r.role} className={`hover:bg-slate-50 transition-colors ${isEditing ? "bg-sky-50/50" : ""}`}>
                         <td className="px-4 py-3.5">
-                          <div className="font-medium text-slate-900">{ROLE_LABELS[r.role] || r.role}</div>
+                          <div className="font-medium text-slate-900">{r.label || r.role}</div>
                           <div className="text-xs text-slate-400 mt-0.5 font-mono">{r.role}</div>
                         </td>
                         <td className="px-4 py-3.5">
@@ -161,7 +153,7 @@ export default function ModelPermissionPage() {
               <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm space-y-5 sticky top-6">
                 <div>
                   <h3 className="text-base font-bold text-slate-900">配置模型白名单</h3>
-                  <p className="text-xs text-slate-500 mt-1">角色：{ROLE_LABELS[editingRole.role] || editingRole.role}</p>
+                  <p className="text-xs text-slate-500 mt-1">角色：{editingRole.label || editingRole.role}</p>
                 </div>
                 <div className="space-y-3">
                   <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">权限设置方式</label>
