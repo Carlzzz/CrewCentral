@@ -1,0 +1,50 @@
+- generic [active] [ref=f1e1]:
+  - generic [ref=f1e3]:
+    - banner [ref=f1e4]:
+      - generic [ref=f1e5]:
+        - generic [ref=f1e6]:
+          - link "光羿Crew" [ref=f1e7] [cursor=pointer]:
+            - /url: /woicrew/home
+            - generic [ref=f1e8]: 光羿Crew
+          - navigation [ref=f1e9]:
+            - link "首页" [ref=f1e10] [cursor=pointer]:
+              - /url: /woicrew/home
+            - link "下载" [ref=f1e11] [cursor=pointer]:
+              - /url: /woicrew/download
+            - link "文档" [ref=f1e12] [cursor=pointer]:
+              - /url: /woicrew/docs
+        - link "登录" [ref=f1e14] [cursor=pointer]:
+          - /url: /woicrew/login
+    - generic [ref=f1e16]:
+      - generic [ref=f1e17]:
+        - heading "用户与权限" [level=1] [ref=f1e18]
+        - paragraph [ref=f1e19]: 管理系统用户、角色菜单权限，以及 AD 组到角色的映射
+      - generic [ref=f1e20]:
+        - button "用户" [ref=f1e21] [cursor=pointer]
+        - button "角色管理" [ref=f1e22] [cursor=pointer]
+        - button "AD 组映射" [ref=f1e23] [cursor=pointer]
+        - button "AD OU 映射" [ref=f1e24] [cursor=pointer]
+      - generic [ref=f1e25]:
+        - generic [ref=f1e26]:
+          - searchbox "搜索用户" [ref=f1e27]
+          - combobox "按角色筛选" [ref=f1e28]:
+            - option "全部角色" [selected]
+          - combobox "按来源筛选" [ref=f1e29]:
+            - option "全部来源" [selected]
+            - option "AD 账号"
+            - option "本地账号"
+        - generic [ref=f1e30]:
+          - button "AD 同步" [ref=f1e31] [cursor=pointer]
+          - button "新增用户" [ref=f1e32] [cursor=pointer]
+      - table [ref=f1e34]:
+        - rowgroup [ref=f1e35]:
+          - row "用户 来源 角色 操作" [ref=f1e36]:
+            - columnheader "用户" [ref=f1e37]
+            - columnheader "来源" [ref=f1e38]
+            - columnheader "角色" [ref=f1e39]
+            - columnheader "操作" [ref=f1e40]
+        - rowgroup [ref=f1e41]:
+          - row "正在加载..." [ref=f1e42]:
+            - cell "正在加载..." [ref=f1e43]
+      - paragraph [ref=f1e44]: 共 0 位用户
+  - generic "Notifications"

@@ -1,0 +1,159 @@
+- generic [ref=f1e1]:
+  - generic [ref=f1e3]:
+    - banner [ref=f1e4]:
+      - generic [ref=f1e5]:
+        - generic [ref=f1e6]:
+          - link "光羿Crew" [ref=f1e7] [cursor=pointer]:
+            - /url: /woicrew/home
+            - generic [ref=f1e8]: 光羿Crew
+          - navigation [ref=f1e9]:
+            - link "首页" [ref=f1e10] [cursor=pointer]:
+              - /url: /woicrew/home
+            - link "下载" [ref=f1e11] [cursor=pointer]:
+              - /url: /woicrew/download
+            - link "文档" [ref=f1e12] [cursor=pointer]:
+              - /url: /woicrew/docs
+            - button "技能中心 ▾" [ref=f1e46] [cursor=pointer]:
+              - text: 技能中心
+              - generic [ref=f1e47]: ▾
+            - button "后台管理 ▾" [ref=f1e49] [cursor=pointer]:
+              - text: 后台管理
+              - generic [ref=f1e50]: ▾
+        - button "Admin" [ref=f1e52] [cursor=pointer]
+    - generic [ref=f1e15]:
+      - generic [ref=f1e16]:
+        - generic [ref=f1e17]:
+          - heading "用户与权限" [level=1] [ref=f1e18]
+          - paragraph [ref=f1e19]: 管理系统用户、角色菜单权限，以及 AD 组到角色的映射
+        - generic [ref=f1e20]:
+          - button "用户" [ref=f1e21] [cursor=pointer]
+          - button "角色管理" [ref=f1e22] [cursor=pointer]
+          - button "AD 组映射" [ref=f1e23] [cursor=pointer]
+          - button "AD OU 映射" [ref=f1e24] [cursor=pointer]
+        - generic [ref=f1e65]:
+          - generic [ref=f1e66]:
+            - generic [ref=f1e67]:
+              - heading "AD OU → 角色映射" [level=3] [ref=f1e68]
+              - paragraph [ref=f1e69]: OU 映射和安全组映射统一优先级，取最高的。一个用户只属于一个 OU，适合按部门定基线角色。
+            - button "新增映射" [active] [ref=f1e70] [cursor=pointer]
+          - table [ref=f1e72]:
+            - rowgroup [ref=f1e73]:
+              - row "OU 名称 目标角色 优先级 操作" [ref=f1e74]:
+                - columnheader "OU 名称" [ref=f1e75]
+                - columnheader "目标角色" [ref=f1e76]
+                - columnheader "优先级" [ref=f1e77]
+                - columnheader "操作" [ref=f1e78]
+            - rowgroup [ref=f1e79]:
+              - row "暂无映射，点击「新增映射」开始配置" [ref=f1e80]:
+                - cell "暂无映射，点击「新增映射」开始配置" [ref=f1e81]
+      - generic [ref=f1e84]:
+        - generic [ref=f1e85]:
+          - heading "新增 AD OU 映射" [level=3] [ref=f1e86]
+          - button "×" [ref=f1e87] [cursor=pointer]
+        - generic [ref=f1e88]:
+          - generic [ref=f1e89]:
+            - text: OU 名称 *
+            - combobox "选择 OU" [ref=f1e90]:
+              - option "请选择 OU" [selected]
+              - option "EHS"
+              - option "IPMS"
+              - option "IT Test"
+              - option "MES"
+              - option "NPI"
+              - option "PMC"
+              - option "SAP"
+              - option "SQE"
+              - option "Users"
+              - option "产品"
+              - option "产品一组"
+              - option "产品二组"
+              - option "产品开发部"
+              - option "产品拓展部"
+              - option "产品组"
+              - option "产研部"
+              - option "人力行政中心"
+              - option "仓储物流部"
+              - option "供应链部"
+              - option "信息技术部"
+              - option "先行设备部"
+              - option "全球营销中心"
+              - option "创新中心"
+              - option "南京宜凯瑞"
+              - option "厂务"
+              - option "品质部"
+              - option "商务"
+              - option "太湖项目"
+              - option "对外合作部"
+              - option "工程"
+              - option "市场部"
+              - option "建筑窗膜产品部"
+              - option "开发一组"
+              - option "开发三组"
+              - option "开发二组"
+              - option "总经办"
+              - option "战略项目部"
+              - option "技术中心"
+              - option "技术开发部"
+              - option "技术运营部"
+              - option "材料研发部"
+              - option "材料组"
+              - option "模组"
+              - option "汽车事业部"
+              - option "汽车销售中国区"
+              - option "法务知识产权"
+              - option "测试组"
+              - option "海外汽车销售部"
+              - option "涂布"
+              - option "涂布生产组"
+              - option "消费电子部"
+              - option "深圳-车间"
+              - option "深圳-车间锁屏10"
+              - option "深圳人力"
+              - option "深圳会议室"
+              - option "深圳安检-不锁屏"
+              - option "深圳行政"
+              - option "电子工程部"
+              - option "电致变色材料1组"
+              - option "电致变色材料2组"
+              - option "第三方账号"
+              - option "苏州人力"
+              - option "苏州实验室"
+              - option "苏州行政"
+              - option "营销中心"
+              - option "计划物控组"
+              - option "设备"
+              - option "设备"
+              - option "设备组"
+              - option "财务部"
+              - option "运营一部"
+              - option "运营三部"
+              - option "运营二部"
+              - option "运营组"
+              - option "配液2组"
+              - option "配液组"
+              - option "销售一部"
+              - option "销售三部"
+              - option "销售二部"
+              - option "项目一组"
+              - option "项目二组"
+              - option "项目管理部"
+              - option "项目组"
+          - generic [ref=f1e91]:
+            - text: 目标角色
+            - combobox "选择目标角色" [ref=f1e92]:
+              - option "超级管理员"
+              - option "技能管理员"
+              - option "运维管理员"
+              - option "文档管理员"
+              - option "普通用户" [selected]
+          - generic [ref=f1e93]:
+            - generic "OU 映射和安全组映射统一比较优先级。数字越大优先级越高（0-1000）；用户属于多个组/OU 时取最高优先级的角色。" [ref=f1e94]:
+              - text: 优先级
+              - generic [ref=f1e95]: ⓘ
+            - spinbutton [ref=f1e96]: "0"
+            - paragraph [ref=f1e97]: 数字越大优先级越高（0-1000）。OU 映射和安全组映射统一比较。
+        - paragraph [ref=f1e98]: 菜单权限和管理员标记来自所选角色；如需调整，请在「角色管理」中修改角色配置。
+        - generic [ref=f1e99]:
+          - button "保存" [ref=f1e100] [cursor=pointer]
+          - button "取消" [ref=f1e101] [cursor=pointer]
+  - generic "Notifications"

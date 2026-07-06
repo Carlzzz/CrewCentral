@@ -1,0 +1,40 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e19]:
+    - banner [ref=e20]:
+      - generic [ref=e21]:
+        - generic [ref=e22]:
+          - link "光羿Crew" [ref=e23] [cursor=pointer]:
+            - /url: /woicrew/home
+            - generic [ref=e24]: 光羿Crew
+          - navigation [ref=e25]:
+            - link "首页" [ref=e26] [cursor=pointer]:
+              - /url: /woicrew/home
+            - link "下载" [ref=e27] [cursor=pointer]:
+              - /url: /woicrew/download
+            - link "文档" [ref=e28] [cursor=pointer]:
+              - /url: /woicrew/docs
+            - button "技能中心 ▾" [ref=e30] [cursor=pointer]:
+              - text: 技能中心
+              - generic [ref=e31]: ▾
+            - button "后台管理 ▾" [ref=e33] [cursor=pointer]:
+              - text: 后台管理
+              - generic [ref=e34]: ▾
+        - button "Admin" [ref=e37] [cursor=pointer]
+    - generic [ref=e39]:
+      - generic [ref=e40]:
+        - heading "发现技能" [level=1] [ref=e41]
+        - paragraph [ref=e42]: 浏览、搜索并管理已发布的技能包
+      - generic [ref=e43]:
+        - textbox "搜索技能名称或 slug" [ref=e44]
+        - button "搜索" [ref=e45] [cursor=pointer]
+      - generic [ref=e46]:
+        - complementary [ref=e47]:
+          - generic [ref=e48]: 分类
+          - generic [ref=e49]:
+            - button "全部" [ref=e50] [cursor=pointer]
+            - button "自动化" [ref=e51] [cursor=pointer]
+            - button "采集" [ref=e52] [cursor=pointer]
+            - button "社交" [ref=e53] [cursor=pointer]
+            - button "自定义" [ref=e54] [cursor=pointer]
+        - generic [ref=e55]: 当前分类暂无技能
+  - generic "Notifications"

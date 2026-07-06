@@ -12,7 +12,8 @@
       "PowerShell(Remove-Item \"c:\\\\Users\\\\zhaocao\\\\Documents\\\\GitHub\\\\CrewCentral\\\\backend\\\\app\\\\auth\\\\model_permission_service.py\" -Confirm:$false)",
       "PowerShell(Set-Location \"c:\\\\Users\\\\zhaocao\\\\Documents\\\\GitHub\\\\CrewCentral\\\\backend\"; $env:UV_HTTP_TIMEOUT = \"120\"; uv run python -c \"from app.models import RoleModelPermission; from app.auth.role_model_permission_service import get_role_model_permissions; print\\('OK'\\)\" 2>&1)",
       "PowerShell(Set-Location \"c:\\\\Users\\\\zhaocao\\\\Documents\\\\GitHub\\\\CrewCentral\\\\backend\"; $env:UV_HTTP_TIMEOUT = \"120\"; uv run alembic upgrade head 2>&1)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(uv run python -c ' *)"
     ]
   }
 }

@@ -1,0 +1,69 @@
+- generic [active] [ref=f1e1]:
+  - generic [ref=f1e3]:
+    - banner [ref=f1e4]:
+      - generic [ref=f1e5]:
+        - generic [ref=f1e6]:
+          - link "光羿Crew" [ref=f1e7] [cursor=pointer]:
+            - /url: /woicrew/home
+            - generic [ref=f1e8]: 光羿Crew
+          - navigation [ref=f1e9]:
+            - link "首页" [ref=f1e10] [cursor=pointer]:
+              - /url: /woicrew/home
+            - link "下载" [ref=f1e11] [cursor=pointer]:
+              - /url: /woicrew/download
+            - link "文档" [ref=f1e12] [cursor=pointer]:
+              - /url: /woicrew/docs
+            - button "技能中心 ▾" [ref=f1e46] [cursor=pointer]:
+              - text: 技能中心
+              - generic [ref=f1e47]: ▾
+            - button "后台管理 ▾" [ref=f1e49] [cursor=pointer]:
+              - text: 后台管理
+              - generic [ref=f1e50]: ▾
+        - button "Admin" [ref=f1e52] [cursor=pointer]
+    - generic [ref=f1e16]:
+      - generic [ref=f1e17]:
+        - heading "用户与权限" [level=1] [ref=f1e18]
+        - paragraph [ref=f1e19]: 管理系统用户、角色菜单权限，以及 AD 组到角色的映射
+      - generic [ref=f1e20]:
+        - button "用户" [ref=f1e21] [cursor=pointer]
+        - button "角色管理" [ref=f1e22] [cursor=pointer]
+        - button "AD 组映射" [ref=f1e23] [cursor=pointer]
+        - button "AD OU 映射" [ref=f1e24] [cursor=pointer]
+      - generic [ref=f1e111]:
+        - generic [ref=f1e112]:
+          - searchbox "搜索用户" [ref=f1e113]
+          - combobox "按角色筛选" [ref=f1e114]:
+            - option "全部角色" [selected]
+            - option "超级管理员"
+            - option "技能管理员"
+            - option "运维管理员"
+            - option "文档管理员"
+            - option "普通用户"
+          - combobox "按来源筛选" [ref=f1e115]:
+            - option "全部来源" [selected]
+            - option "AD 账号"
+            - option "本地账号"
+        - generic [ref=f1e116]:
+          - button "同步中…" [disabled] [ref=f1e141]
+          - button "新增用户" [ref=f1e118] [cursor=pointer]
+      - table [ref=f1e120]:
+        - rowgroup [ref=f1e121]:
+          - row "用户 来源 角色 操作" [ref=f1e122]:
+            - columnheader "用户" [ref=f1e123]
+            - columnheader "来源" [ref=f1e124]
+            - columnheader "角色" [ref=f1e125]
+            - columnheader "操作" [ref=f1e126]
+        - rowgroup [ref=f1e127]:
+          - row "Admin admin@local 本地 超级管理员 编辑 删除" [ref=f1e128]:
+            - cell "Admin admin@local" [ref=f1e129]:
+              - generic [ref=f1e130]: Admin
+              - generic [ref=f1e131]: admin@local
+            - cell "本地" [ref=f1e132]:
+              - generic [ref=f1e133]: 本地
+            - cell "超级管理员" [ref=f1e134]:
+              - generic [ref=f1e136]: 超级管理员
+            - cell "编辑 删除" [ref=f1e137]:
+              - button "编辑" [ref=f1e138] [cursor=pointer]
+              - button "删除" [ref=f1e139] [cursor=pointer]
+      - paragraph [ref=f1e140]: 共 1 位用户
+  - generic "Notifications"
