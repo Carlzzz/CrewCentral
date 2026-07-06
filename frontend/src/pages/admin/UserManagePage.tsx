@@ -678,8 +678,12 @@ export default function UserManagePage() {
               </select>
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-500">优先级</label>
+              <label className="text-xs font-medium text-slate-500 flex items-center gap-1" title="当用户同时属于多个已映射的 AD 组时，系统选择优先级数字最大的映射对应的角色。数字越大优先级越高；范围 0-1000，默认 0。">
+                优先级
+                <span className="text-slate-300 cursor-help text-[10px]">ⓘ</span>
+              </label>
               <input type="number" min={0} max={1000} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-sky-300 focus:ring-1 focus:ring-sky-200 outline-none" value={m.priority} onChange={(e) => setM({ priority: Number(e.target.value) || 0 })} />
+              <p className="text-[11px] text-slate-400">数字越大优先级越高（0-1000）。用户属于多个组时取最高优先级的角色。</p>
             </div>
           </div>
           <p className="rounded-lg bg-slate-50 border border-slate-100 px-3 py-2 text-xs text-slate-500">
