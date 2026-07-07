@@ -107,7 +107,7 @@ function QuotaCard({ label, cred }: { label: string; cred: GatewayCredential }) 
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
       <div className="flex items-center text-xs font-mono text-slate-600">
-        <span className="truncate">{label}</span>
+        <span className="min-w-0 truncate">{label}</span>
         {cred.quota?.estimated === true && (
           <span className="ml-2 shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">预估</span>
         )}
