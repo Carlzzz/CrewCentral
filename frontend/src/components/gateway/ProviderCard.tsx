@@ -63,7 +63,7 @@ export default function ProviderCard({ provider }: ProviderCardProps) {
               <span className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${dotClass}`} />
               <span className="truncate text-base font-bold text-slate-900">{name}</span>
             </div>
-            <div className="mt-0.5 pl-4.5 text-[11px] font-mono text-slate-500 truncate">{model}</div>
+            <div className="mt-0.5 pl-[18px] text-[11px] font-mono text-slate-500 truncate">{model}</div>
           </div>
           <span
             className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${

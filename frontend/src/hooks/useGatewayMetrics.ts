@@ -43,6 +43,7 @@ export function useGatewayMetrics(): GatewayMetricsState {
   useEffect(() => {
     let cancelled = false;
     const tick = async () => {
+      if (document.hidden) return;           // pause polling when tab hidden
       if (inFlight.current) return;          // overlap protection
       inFlight.current = true;
       try {
