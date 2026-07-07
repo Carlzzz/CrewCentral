@@ -42,6 +42,7 @@ type BarDatum = {
 
 export default function PoolLoadChart({ providers }: PoolLoadChartProps) {
   const ref = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<echarts.ECharts | null>(null);
 
   const data = useMemo<BarDatum[]>(() => {
     const now = Date.now();
@@ -72,78 +73,96 @@ export default function PoolLoadChart({ providers }: PoolLoadChartProps) {
     return rows;
   }, [providers]);
 
+  // Mount-once: create the chart a single time and attach the resize listener.
+  // Disposing happens only on unmount, so polling (which yields a new data ref
+  // every 3s) no longer rebuilds the canvas.
   useEffect(() => {
     if (!ref.current) return;
-    if (data.length === 0) return;
     const chart = echarts.init(ref.current, "crew-light");
-    const labels = data.map((d) => d.label);
-    const values = data.map((d) => ({
-      value: d.value,
-      itemStyle: { color: d.color, borderRadius: [0, 3, 3, 0] },
-    }));
-    chart.setOption({
-      grid: { left: 8, right: 24, top: 8, bottom: 8, containLabel: true },
-      tooltip: {
-        trigger: "axis",
-        axisPointer: { type: "shadow" },
-        formatter: (params: unknown) => {
-          const arr = params as Array<{ dataIndex: number }>;
-          if (!arr || arr.length === 0) return "";
-          const d = data[arr[0].dataIndex];
-          const lines = [
-            `<div style="font-weight:600;margin-bottom:2px">${d.label}</div>`,
-            `近 1h 调用：<b>${d.value}</b>`,
-          ];
-          if (d.inCooldown) {
-            const reason = d.cooldownReason ? COOLDOWN_REASON_LABEL[d.cooldownReason] : "—";
-            lines.push(`冷却中（${reason}）${d.remaining ? ` · ${d.remaining}` : ""}`);
-          } else {
-            lines.push(`<span style="color:#10b981">正常</span>`);
-          }
-          return lines.join("<br/>");
-        },
-      },
-      xAxis: { type: "value", minInterval: 1, splitLine: { lineStyle: { color: "#f1f5f9" } } },
-      yAxis: {
-        type: "category",
-        data: labels,
-        inverse: true,
-        axisTick: { show: false },
-        axisLine: { lineStyle: { color: "#e2e8f0" } },
-      },
-      series: [
-        {
-          type: "bar",
-          data: values,
-          barMaxWidth: 18,
-          label: {
-            show: true,
-            position: "right",
-            color: "#475569",
-            fontSize: 11,
-            formatter: (p: { value: number }) => String(p.value),
-          },
-        },
-      ],
-    });
+    chartRef.current = chart;
     const onResize = () => chart.resize();
     window.addEventListener("resize", onResize);
     return () => {
       window.removeEventListener("resize", onResize);
       chart.dispose();
+      chartRef.current = null;
     };
+  }, []);
+
+  // Data effect: just push a new option into the existing chart instance.
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    if (data.length === 0) {
+      chart.clear();
+      return;
+    }
+    const labels = data.map((d) => d.label);
+    const values = data.map((d) => ({
+      value: d.value,
+      itemStyle: { color: d.color, borderRadius: [0, 3, 3, 0] },
+    }));
+    chart.setOption(
+      {
+        grid: { left: 8, right: 24, top: 8, bottom: 8, containLabel: true },
+        tooltip: {
+          trigger: "axis",
+          axisPointer: { type: "shadow" },
+          formatter: (params: unknown) => {
+            const arr = params as Array<{ dataIndex: number }>;
+            if (!arr || arr.length === 0) return "";
+            const d = data[arr[0].dataIndex];
+            const lines = [
+              `<div style="font-weight:600;margin-bottom:2px">${d.label}</div>`,
+              `近 1h 调用：<b>${d.value}</b>`,
+            ];
+            if (d.inCooldown) {
+              const reason = d.cooldownReason ? COOLDOWN_REASON_LABEL[d.cooldownReason] : "—";
+              lines.push(`冷却中（${reason}）${d.remaining ? ` · ${d.remaining}` : ""}`);
+            } else {
+              lines.push(`<span style="color:#10b981">正常</span>`);
+            }
+            return lines.join("<br/>");
+          },
+        },
+        xAxis: { type: "value", minInterval: 1, splitLine: { lineStyle: { color: "#f1f5f9" } } },
+        yAxis: {
+          type: "category",
+          data: labels,
+          inverse: true,
+          axisTick: { show: false },
+          axisLine: { lineStyle: { color: "#e2e8f0" } },
+        },
+        series: [
+          {
+            type: "bar",
+            data: values,
+            barMaxWidth: 18,
+            label: {
+              show: true,
+              position: "right",
+              color: "#475569",
+              fontSize: 11,
+              formatter: (p: { value: number }) => String(p.value),
+            },
+          },
+        ],
+      },
+      false,
+    );
   }, [data]);
 
   return (
     <div>
       <div className="mb-2 text-sm font-semibold text-slate-700">池子负载（近 1h 调用次数）</div>
-      {data.length === 0 ? (
-        <div className="flex h-[200px] items-center justify-center rounded-lg bg-slate-50 text-sm text-slate-400">
-          暂无数据
-        </div>
-      ) : (
+      <div className="relative">
         <div ref={ref} className="h-[280px] w-full" />
-      )}
+        {data.length === 0 && (
+          <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-slate-50 text-sm text-slate-400">
+            暂无数据
+          </div>
+        )}
+      </div>
     </div>
   );
 }
