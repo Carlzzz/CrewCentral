@@ -16,7 +16,7 @@ export type GatewayMetricsState = {
  */
 export type HistorySample = {
   ts: number;
-  /** totals.last1h.count at sample time */
+  /** totals.last1m.count at sample time */
   count: number;
   /** totals.last5m.successRate (0..1) at sample time */
   successRate: number;
@@ -53,7 +53,7 @@ export function useGatewayMetrics(): GatewayMetricsState {
           const d = res.data;
           const sample: HistorySample = {
             ts: Date.now(),
-            count: d.totals.last1h.count ?? 0,
+            count: d.totals.last1m.count ?? 0,
             successRate: d.totals.last5m.successRate ?? 0,
             inputTokens: d.totals.last1m.inputTokens ?? 0,
             outputTokens: d.totals.last1m.outputTokens ?? 0,

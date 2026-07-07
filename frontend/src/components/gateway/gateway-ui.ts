@@ -1,4 +1,4 @@
-import type { GatewayCredential, GatewayProvider } from "../../lib/gateway-api";
+import type { GatewayCredential, GatewayProvider, ProviderHealth, WindowStats } from "../../lib/gateway-api";
 
 export type ProviderKind = "glm" | "minimax" | "other";
 
@@ -89,6 +89,81 @@ export function getProviderKind(provider: GatewayProvider): ProviderKind {
   return "other";
 }
 
+function mergeWindowStats(providers: GatewayProvider[], window: keyof GatewayProvider["stats"]): WindowStats {
+  const totals = providers.reduce(
+    (acc, provider) => {
+      const stats = provider.stats[window];
+      const count = stats.count ?? 0;
+      const success = stats.success ?? 0;
+      const fail = stats.fail ?? 0;
+      acc.count += count;
+      acc.success += success;
+      acc.fail += fail;
+      acc.inputTokens += stats.inputTokens ?? 0;
+      acc.outputTokens += stats.outputTokens ?? 0;
+      acc.costWeightedByCount += (stats.avgCostMs ?? 0) * count;
+      return acc;
+    },
+    { count: 0, success: 0, fail: 0, inputTokens: 0, outputTokens: 0, costWeightedByCount: 0 },
+  );
+
+  return {
+    count: totals.count,
+    success: totals.success,
+    fail: totals.fail,
+    successRate: totals.count > 0 ? totals.success / totals.count : 0,
+    inputTokens: totals.inputTokens,
+    outputTokens: totals.outputTokens,
+    avgCostMs: totals.count > 0 ? totals.costWeightedByCount / totals.count : 0,
+  };
+}
+
+function worstHealth(providers: GatewayProvider[]): ProviderHealth {
+  if (providers.some((provider) => provider.health === "down")) return "down";
+  if (providers.some((provider) => provider.health === "degraded")) return "degraded";
+  return "healthy";
+}
+
+function joinUniqueModels(providers: GatewayProvider[]): string {
+  const models = Array.from(new Set(providers.map((provider) => provider.model).filter(Boolean)));
+  return models.join(" / ");
+}
+
+function mergeHeroProvider(kind: Exclude<ProviderKind, "other">, providers: GatewayProvider[]): GatewayProvider | null {
+  if (providers.length === 0) return null;
+  const upstreamIds = new Set(providers.map((provider) => provider.upstreamId));
+  const credentialIds = new Set<string>();
+  const duplicateCredentialIds = new Set<string>();
+
+  for (const provider of providers) {
+    for (const credential of provider.credentials) {
+      if (credentialIds.has(credential.id)) duplicateCredentialIds.add(credential.id);
+      credentialIds.add(credential.id);
+    }
+  }
+
+  const credentials = providers.flatMap((provider) =>
+    provider.credentials.map((credential) => ({
+      ...credential,
+      id: duplicateCredentialIds.has(credential.id) ? `${provider.upstreamId}:${credential.id}` : credential.id,
+    })),
+  );
+  const first = providers[0];
+
+  return {
+    upstreamId: upstreamIds.size === 1 ? first.upstreamId : `${kind}:${Array.from(upstreamIds).join("+")}`,
+    provider: kind === "glm" ? "GLM" : "MiniMax",
+    model: joinUniqueModels(providers),
+    health: worstHealth(providers),
+    stats: {
+      last1m: mergeWindowStats(providers, "last1m"),
+      last5m: mergeWindowStats(providers, "last5m"),
+      last1h: mergeWindowStats(providers, "last1h"),
+    },
+    credentials,
+  };
+}
+
 export function getProviderTheme(provider: GatewayProvider): ProviderTheme {
   const kind = getProviderKind(provider);
   if (kind === "glm") return GLM_THEME;
@@ -100,10 +175,11 @@ export function splitGatewayProviders(providers: GatewayProvider[]): {
   heroProviders: GatewayProvider[];
   otherProviders: GatewayProvider[];
 } {
-  const glm = providers.filter((p) => getProviderKind(p) === "glm");
-  const minimax = providers.filter((p) => getProviderKind(p) === "minimax");
+  const glmProvider = mergeHeroProvider("glm", providers.filter((p) => getProviderKind(p) === "glm"));
+  const minimaxProvider = mergeHeroProvider("minimax", providers.filter((p) => getProviderKind(p) === "minimax"));
+  const heroProviders = [glmProvider, minimaxProvider].filter((provider): provider is GatewayProvider => provider !== null);
   const otherProviders = providers.filter((p) => getProviderKind(p) === "other");
-  return { heroProviders: [...glm, ...minimax], otherProviders };
+  return { heroProviders, otherProviders };
 }
 
 export function quotaTone(usedPct: number): "normal" | "warning" | "critical" {
@@ -163,6 +239,7 @@ export function poolSummary(provider: GatewayProvider): {
   let message = "所有 token 池可用，配额分布均衡";
   if (credentialCount === 0) message = "暂无 token 池数据";
   else if (provider.health === "down") message = "所有池子不可用，请检查上游凭证或配额";
+  else if (expiredCount > 0) message = "有 token 池 key 失效，请检查上游凭证或配额";
   else if (quotaErrorCount > 0) message = "配额查询失败，保留最近调用负载";
   else if (cooldownCount > 0) message = "部分池子处于冷却，流量会自动绕行";
   else if (criticalQuotaCount > 0) message = "有池子接近 5h 限额，注意短时突增";

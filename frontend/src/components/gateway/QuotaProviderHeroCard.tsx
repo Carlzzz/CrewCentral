@@ -58,10 +58,10 @@ function QuotaText({ cred }: { cred: GatewayCredential }) {
   const countdown = formatCountdown(fiveHour.resetsAt ?? null);
   const usageText = fiveHour.limitTokens == null
     ? `已用 ${fiveHour.usedPct.toFixed(1)}%`
-    : `已用 ${formatTokens(fiveHour.usedTokens)} / ${formatTokens(fiveHour.limitTokens)}`;
+    : `已用 ${formatTokens(fiveHour.usedTokens)} / ${formatTokens(fiveHour.limitTokens)}（${fiveHour.usedPct.toFixed(1)}%）`;
   return (
     <span>
-      {usageText}（{fiveHour.usedPct.toFixed(1)}%）{countdown ? ` · ${countdown}` : " · 滚动窗口"}
+      {usageText}{countdown ? ` · ${countdown}` : " · 滚动窗口"}
     </span>
   );
 }
