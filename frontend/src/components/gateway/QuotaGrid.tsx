@@ -106,7 +106,12 @@ function QuotaCard({ label, cred }: { label: string; cred: GatewayCredential }) 
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-      <div className="truncate text-xs font-mono text-slate-600">{label}</div>
+      <div className="flex items-center text-xs font-mono text-slate-600">
+        <span className="truncate">{label}</span>
+        {cred.quota?.estimated === true && (
+          <span className="ml-2 shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">预估</span>
+        )}
+      </div>
       <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-200/70">
         <div
           className={`h-full rounded-full ${quotaBarClass(usedPct)}`}
@@ -117,7 +122,11 @@ function QuotaCard({ label, cred }: { label: string; cred: GatewayCredential }) 
         已用 {formatTokens(fiveHour.usedTokens)} / {formatTokens(fiveHour.limitTokens)}（{usedPct.toFixed(1)}%）
       </div>
       <div className="mt-0.5 flex items-center justify-between text-[11px] text-slate-400">
-        <span>{countdown ? `重置 ${countdown}` : "重置时间未知"}</span>
+        {fiveHour.resetsAt == null ? (
+          <span className="text-[10px] text-slate-400">滚动窗口</span>
+        ) : (
+          <span className="text-[10px] text-slate-400">重置 {countdown}</span>
+        )}
         {weeklyPct != null ? <span className="font-mono">周：{weeklyPct.toFixed(1)}%</span> : null}
       </div>
     </div>

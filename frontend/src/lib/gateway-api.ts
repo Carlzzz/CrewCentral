@@ -20,6 +20,7 @@ export type QuotaTier = {
 export type CredentialQuota = {
   fiveHour?: QuotaTier;
   weekly?: QuotaTier;
+  estimated?: boolean;
 } | null;
 
 export type GatewayCredential = {
