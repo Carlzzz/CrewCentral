@@ -86,6 +86,7 @@ export default function TopNavBar() {
       { to: "/admin/users", label: "用户管理" },
       { to: "/admin/models", label: "模型权限" },
       { to: "/admin/usage", label: "用量分析" },
+      { to: "/admin/gateway", label: "网关监控" },
     ],
     [],
   );
@@ -96,7 +97,8 @@ export default function TopNavBar() {
     pathname.startsWith("/admin/docs") ||
     pathname.startsWith("/admin/users") ||
     pathname.startsWith("/admin/models") ||
-    pathname.startsWith("/admin/usage");
+    pathname.startsWith("/admin/usage") ||
+    pathname.startsWith("/admin/gateway");
 
   useEffect(() => {
     void (async () => {
@@ -154,7 +156,7 @@ export default function TopNavBar() {
                 items={skillMenu.filter((x) => (x.to.endsWith("/assignments") ? can("skills.assignments") : can("skills")))}
               />
             ) : null}
-            {can("devices") || can("releases") || can("docs.manage") || can("users.manage") || can("models.manage") || can("usage") ? (
+            {can("devices") || can("releases") || can("docs.manage") || can("users.manage") || can("models.manage") || can("usage") || can("gateway") ? (
               <MenuDropdown
                 label="后台管理"
                 active={adminActive}
@@ -165,6 +167,7 @@ export default function TopNavBar() {
                   if (x.to.endsWith("/users")) return can("users.manage");
                   if (x.to.endsWith("/models")) return can("models.manage");
                   if (x.to.endsWith("/usage")) return can("usage");
+                  if (x.to.endsWith("/gateway")) return can("gateway");
                   return false;
                 })}
               />

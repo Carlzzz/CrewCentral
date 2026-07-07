@@ -4,7 +4,7 @@ import { Navigate, Outlet } from "react-router-dom";
 import TopNavBar from "../../components/layout/TopNavBar";
 import { fetchSessionUserinfo } from "../../lib/api";
 
-const ADMIN_PERMS = ["skills", "skills.assignments", "devices", "releases", "docs.manage", "users.manage", "models.manage", "usage"];
+const ADMIN_PERMS = ["skills", "skills.assignments", "devices", "releases", "docs.manage", "users.manage", "models.manage", "usage", "gateway"];
 
 export default function AdminLayout() {
   const [allowed, setAllowed] = useState<boolean | null>(null);

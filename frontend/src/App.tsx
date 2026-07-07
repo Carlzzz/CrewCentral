@@ -23,6 +23,7 @@ import ChangePasswordPage from "./pages/ChangePasswordPage";
 import UsageDashboardPage from "./pages/admin/UsageDashboardPage";
 import UserManagePage from "./pages/admin/UserManagePage";
 import ModelPermissionPage from "./pages/admin/ModelPermissionPage";
+import GatewayDashboardPage from "./pages/admin/GatewayDashboardPage";
 
 export default function App() {
   return (
@@ -53,7 +54,9 @@ export default function App() {
         <Route path="users" element={<UserManagePage />} />
         <Route path="models" element={<ModelPermissionPage />} />
         <Route path="usage" element={<UsageDashboardPage />} />
+        <Route path="gateway" element={<GatewayDashboardPage />} />
       </Route>
+      <Route path="/dashboard/gateway" element={<GatewayDashboardPage />} />
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );
