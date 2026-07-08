@@ -89,6 +89,10 @@ function viewCredToDraft(c: CredentialView): CredentialDraft {
     apiKey: "",
     weight: c.weight ?? 1,
     enabled: c.enabled ?? true,
+    // View-only: carried in state so keep mode can render the masked preview.
+    // Never sent to the server — buildDraft drops these when reconstructing.
+    hasApiKey: !!c.hasApiKey,
+    apiKeyMasked: c.apiKeyMasked ?? "",
   };
 }
 
@@ -103,6 +107,10 @@ function duplicateUpstreamDraft(src: UpstreamDraft): UpstreamDraft {
       ...c,
       apiKeyMode: "replace" as ApiKeyMode,
       apiKey: "",
+      // Duplicate starts with no persisted key on the new copy: drop any
+      // inherited masking so the row shows "未配置" until re-entered.
+      hasApiKey: false,
+      apiKeyMasked: "",
     })),
   };
 }
@@ -150,6 +158,10 @@ export default function ProviderConfigPage() {
   // modelRoutes keyed by model name.
   const [routes, setRoutes] = useState<Record<string, ModelRouteView>>({});
 
+  // defaultUpstream round-trips the persisted default so saves don't drop it.
+  // Rendered read-only; editors live on the named upstreams above.
+  const [defaultUpstream, setDefaultUpstream] = useState<UpstreamState | null>(null);
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [effective, setEffective] = useState<EffectiveConfig | null>(null);
   const [proxyOnline, setProxyOnline] = useState<boolean | null>(null);
@@ -193,6 +205,18 @@ export default function ProviderConfigPage() {
       nextRoutes[model] = normalizeModelRoute(value);
     }
     setRoutes(nextRoutes);
+
+    // Round-trip defaultUpstream: preserve any persisted default so the next
+    // save does not silently drop it. Kept in keep mode with masked preview.
+    if (data.defaultUpstream) {
+      setDefaultUpstream({
+        draft: viewToDraft(data.defaultUpstream),
+        hasApiKey: !!data.defaultUpstream.hasApiKey,
+        apiKeyMasked: data.defaultUpstream.apiKeyMasked ?? "",
+      });
+    } else {
+      setDefaultUpstream(null);
+    }
 
     if (effRes.rc === 0) {
       setEffective(effRes.data ?? null);
@@ -295,7 +319,7 @@ export default function ProviderConfigPage() {
         const cur = prev[id];
         if (!cur) return prev;
         const creds = [...(cur.draft.codePlanCredentials ?? [])];
-        creds.push({ id: "", apiKeyMode: "replace", apiKey: "", weight: 1, enabled: true });
+        creds.push({ id: "", apiKeyMode: "replace", apiKey: "", weight: 1, enabled: true, hasApiKey: false, apiKeyMasked: "" });
         return { ...prev, [id]: { ...cur, draft: { ...cur.draft, codePlanCredentials: creds } } };
       });
     },
@@ -382,7 +406,12 @@ export default function ProviderConfigPage() {
       const creds: CredentialDraft[] = (d.codePlanCredentials ?? []).map((c) => ({
         id: c.id.trim(),
         apiKeyMode: c.apiKeyMode,
-        apiKey: c.apiKeyMode === "replace" ? (c.apiKey ?? "").trim() : undefined,
+        // Mirror upstream: empty replace-mode key → undefined (never send
+        // "replace with empty string"). Keep mode always sends no key.
+        apiKey:
+          c.apiKeyMode === "replace"
+            ? (c.apiKey ?? "").trim() || undefined
+            : undefined,
         weight: Number.isFinite(c.weight) ? c.weight : 1,
         enabled: c.enabled,
       }));
@@ -400,8 +429,34 @@ export default function ProviderConfigPage() {
     for (const [model, r] of Object.entries(routes)) {
       modelRoutes[model] = { upstream: r.upstream, model: r.model };
     }
-    return { upstreamsById, modelRoutes };
-  }, [order, upstreams, routes]);
+    const draft: ProviderConfigDraft = { upstreamsById, modelRoutes };
+    // Re-emit defaultUpstream so a save round-trips any persisted default
+    // instead of dropping it. Same shape/normalization as a named upstream.
+    if (defaultUpstream) {
+      const dd = defaultUpstream.draft;
+      const dKey = dd.apiKeyMode === "replace" ? (dd.apiKey ?? "").trim() || undefined : undefined;
+      const dCreds: CredentialDraft[] = (dd.codePlanCredentials ?? []).map((c) => ({
+        id: c.id.trim(),
+        apiKeyMode: c.apiKeyMode,
+        apiKey:
+          c.apiKeyMode === "replace"
+            ? (c.apiKey ?? "").trim() || undefined
+            : undefined,
+        weight: Number.isFinite(c.weight) ? c.weight : 1,
+        enabled: c.enabled,
+      }));
+      draft.defaultUpstream = {
+        baseURL: dd.baseURL.trim(),
+        apiKeyMode: dd.apiKeyMode,
+        apiKey: dKey,
+        model: dd.model.trim(),
+        provider: dd.provider,
+        codePlanCredentials: dCreds,
+        quotaLimits: dd.quotaLimits,
+      };
+    }
+    return draft;
+  }, [order, upstreams, routes, defaultUpstream]);
 
   /* ---------- validation error map ---------- */
 
@@ -583,6 +638,11 @@ export default function ProviderConfigPage() {
           >
             {banner.text}
           </div>
+        ) : null}
+
+        {/* defaultUpstream: read-only round-trip indicator (saved verbatim) */}
+        {!loading && defaultUpstream ? (
+          <DefaultUpstreamCard state={defaultUpstream} />
         ) : null}
 
         {loading ? (
@@ -789,6 +849,60 @@ function Stat({
         {value}
       </div>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Default upstream card (read-only round-trip)                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Renders the persisted defaultUpstream as a read-only indicator. The value
+ * is re-emitted verbatim on save (see buildDraft), so it is never lost.
+ * Named upstreams are edited above; this just confirms the default survived.
+ */
+function DefaultUpstreamCard({ state }: { state: UpstreamState }) {
+  const d = state.draft;
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">defaultUpstream</h2>
+          <p className="text-xs text-slate-500">
+            持久化的默认上游（只读，保存时原样回写）
+          </p>
+        </div>
+        <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-600">
+          {d.provider || "custom"}
+        </span>
+      </div>
+      <dl className="mt-3 grid grid-cols-2 gap-3 text-xs md:grid-cols-4">
+        <div className="min-w-0">
+          <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-400">baseURL</dt>
+          <dd className="mt-0.5 truncate font-mono text-slate-800" title={d.baseURL}>
+            {d.baseURL || "—"}
+          </dd>
+        </div>
+        <div className="min-w-0">
+          <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-400">model</dt>
+          <dd className="mt-0.5 truncate font-mono text-slate-800" title={d.model}>
+            {d.model || "—"}
+          </dd>
+        </div>
+        <div className="min-w-0">
+          <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-400">apiKey</dt>
+          <dd className="mt-0.5 truncate font-mono text-slate-500" title="已保存的 apiKey（系统不回显完整值）">
+            {state.hasApiKey ? state.apiKeyMasked || "••••••••（已配置）" : "未配置"}
+          </dd>
+        </div>
+        <div className="min-w-0">
+          <dt className="text-[11px] font-medium uppercase tracking-wide text-slate-400">credentials</dt>
+          <dd className="mt-0.5 text-slate-800">
+            {d.codePlanCredentials?.length ?? 0}
+          </dd>
+        </div>
+      </dl>
+    </section>
   );
 }
 
@@ -1021,8 +1135,8 @@ function CredentialRow({
       <ApiKeyField
         label="凭据 apiKey"
         mode={cred.apiKeyMode}
-        masked=""
-        hasKey={false}
+        masked={cred.apiKeyMasked ?? ""}
+        hasKey={!!cred.hasApiKey}
         value={cred.apiKey ?? ""}
         error={apiKeyErr}
         onSwitch={(m) => onPatch({ apiKeyMode: m, apiKey: m === "replace" ? "" : "" })}

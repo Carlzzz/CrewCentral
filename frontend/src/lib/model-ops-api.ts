@@ -59,6 +59,14 @@ export type CredentialDraft = {
   apiKey?: string;
   weight: number;
   enabled: boolean;
+  /**
+   * View-only fields (client-side state, NEVER sent to the server —
+   * buildDraft reconstructs fresh objects without these). They mirror the
+   * redacted view so a persisted credential can render its masked preview
+   * in keep mode, matching how upstream state carries masking info.
+   */
+  hasApiKey?: boolean;
+  apiKeyMasked?: string;
 };
 
 export type UpstreamDraft = {
