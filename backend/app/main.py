@@ -22,6 +22,7 @@ from app.api.routes import (
     docs_public,
     gateway_admin,
     login,
+    model_ops_admin,
     models_admin,
     releases_admin,
     releases_client,
@@ -105,6 +106,7 @@ def create_app() -> FastAPI:
     root.include_router(users_admin.router, prefix="/api/v1")
     root.include_router(models_admin.router, prefix="/api/v1")
     root.include_router(gateway_admin.router, prefix="/api/v1")
+    root.include_router(model_ops_admin.router, prefix="/api/v1")
     root.include_router(users_client.router, prefix="/api/v1")
     root.include_router(account.router, prefix="/api/v1")
     root.include_router(docs_public.router, prefix="/api/v1")
