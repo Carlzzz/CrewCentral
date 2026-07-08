@@ -51,7 +51,10 @@ async def provider_validate(
     _admin: User = Depends(require_session_permission("providers.manage")),
 ) -> dict:
     """转发 POST /admin/config/validate，校验 providers 配置。"""
-    body = await request.json()
+    try:
+        body = await request.json()
+    except Exception:
+        return rc_err("请求体不是合法 JSON")
     return await _proxy("POST", "/admin/config/validate", json_body=body)
 
 
@@ -61,7 +64,10 @@ async def provider_save(
     _admin: User = Depends(require_session_permission("providers.manage")),
 ) -> dict:
     """转发 PUT /admin/config，保存 providers 配置。"""
-    body = await request.json()
+    try:
+        body = await request.json()
+    except Exception:
+        return rc_err("请求体不是合法 JSON")
     return await _proxy("PUT", "/admin/config", json_body=body)
 
 
