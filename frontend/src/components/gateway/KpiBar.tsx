@@ -1,4 +1,5 @@
 import type { WindowStats } from "../../lib/gateway-api";
+import { activeProviderEmphasis, downProviderEmphasis, successRateEmphasis, type KpiEmphasis } from "./kpi-ui";
 
 type KpiBarProps = {
   totals: { last1m: WindowStats; last5m: WindowStats; last1h: WindowStats };
@@ -23,22 +24,25 @@ function KpiTile({
   label: string;
   value: string;
   sub?: string;
-  emphasis?: "rose" | "default";
+  emphasis?: KpiEmphasis;
 }) {
-  const isRose = emphasis === "rose";
+  const tone = emphasis ?? "default";
+  const toneClass: Record<KpiEmphasis, { card: string; label: string; value: string; sub: string }> = {
+    default: { card: "border-slate-200 bg-white", label: "text-slate-500", value: "text-slate-900", sub: "text-slate-400" },
+    emerald: { card: "border-emerald-200 bg-emerald-50/60", label: "text-emerald-600", value: "text-emerald-700", sub: "text-emerald-600/70" },
+    amber: { card: "border-amber-200 bg-amber-50/70", label: "text-amber-600", value: "text-amber-700", sub: "text-amber-600/75" },
+    rose: { card: "border-rose-200 bg-rose-50/60", label: "text-rose-600", value: "text-rose-700", sub: "text-rose-600/75" },
+  };
+  const classes = toneClass[tone];
   return (
-    <div
-      className={`rounded-xl border p-4 shadow-sm ${
-        isRose ? "border-rose-200 bg-rose-50/60" : "border-slate-200 bg-white"
-      }`}
-    >
-      <div className={`text-[11px] font-semibold uppercase tracking-wider ${isRose ? "text-rose-600" : "text-slate-500"}`}>
+    <div className={`rounded-xl border p-4 shadow-sm ${classes.card}`}>
+      <div className={`text-[11px] font-semibold uppercase tracking-wider ${classes.label}`}>
         {label}
       </div>
-      <div className={`mt-1 text-2xl font-bold tracking-tight ${isRose ? "text-rose-700" : "text-slate-900"}`}>
+      <div className={`mt-1 text-2xl font-bold tracking-tight ${classes.value}`}>
         {value}
       </div>
-      {sub ? <div className="mt-0.5 text-[11px] text-slate-400">{sub}</div> : null}
+      {sub ? <div className={`mt-0.5 text-[11px] ${classes.sub}`}>{sub}</div> : null}
     </div>
   );
 }
@@ -67,7 +71,7 @@ export default function KpiBar({ totals, activeProviders, downProviders, lastUpd
           label="成功率 (5min)"
           value={`${successRatePct.toFixed(1)}%`}
           sub={`${totals.last5m.success ?? 0}/${totals.last5m.count || 0}`}
-          emphasis={successRatePct < 90 ? "rose" : "default"}
+          emphasis={successRateEmphasis(successRatePct)}
         />
         <KpiTile
           label="Token / 分钟"
@@ -78,12 +82,13 @@ export default function KpiBar({ totals, activeProviders, downProviders, lastUpd
           label="活跃 Provider"
           value={activeProviders !== undefined ? String(activeProviders) : "—"}
           sub="当前在线上游"
+          emphasis={activeProviderEmphasis()}
         />
         <KpiTile
           label="异常 Provider"
           value={String(down)}
           sub={down > 0 ? "存在异常，请关注" : "全部正常"}
-          emphasis={down > 0 ? "rose" : "default"}
+          emphasis={downProviderEmphasis(down)}
         />
       </div>
     </div>

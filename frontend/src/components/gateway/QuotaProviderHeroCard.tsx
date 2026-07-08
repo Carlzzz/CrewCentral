@@ -5,9 +5,12 @@ import {
   formatTokens,
   getProviderTheme,
   loadFillClass,
+  poolRequestMetricLabel,
+  poolRequestMetricText,
   poolStatus,
   poolSummary,
   quotaFillClass,
+  sharedQuotaLabel,
   type ProviderTheme,
 } from "./gateway-ui";
 
@@ -84,7 +87,7 @@ function PoolRow({ cred, maxRequestsLast1h, theme }: { cred: GatewayCredential; 
           </div>
           <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-500">
             <span>inFlight {cred.inFlight ?? 0}</span>
-            <span>近 1h {cred.requestsLast1h ?? 0} 次</span>
+            <span>{poolRequestMetricText(cred.requestsLast1h)}</span>
           </div>
         </div>
 
@@ -103,7 +106,7 @@ function PoolRow({ cred, maxRequestsLast1h, theme }: { cred: GatewayCredential; 
 
         <div className="lg:w-[120px]">
           <div className="flex items-center justify-between gap-2 text-[11px] text-slate-500">
-            <span>负载</span>
+            <span>{poolRequestMetricLabel()}</span>
             <span className="font-mono text-slate-600">{cred.requestsLast1h ?? 0}</span>
           </div>
           <div className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-slate-200/80">
@@ -125,6 +128,7 @@ function PoolRow({ cred, maxRequestsLast1h, theme }: { cred: GatewayCredential; 
 export default function QuotaProviderHeroCard({ provider }: QuotaProviderHeroCardProps) {
   const theme = getProviderTheme(provider);
   const summary = poolSummary(provider);
+  const sharedQuota = sharedQuotaLabel(provider);
   const stats5m = provider.stats.last5m;
   const stats1m = provider.stats.last1m;
   const successRatePct = (stats5m.successRate ?? 0) * 100;
@@ -141,6 +145,7 @@ export default function QuotaProviderHeroCard({ provider }: QuotaProviderHeroCar
             <StatusBadge label={HEALTH_LABEL[provider.health]} className={HEALTH_PILL[provider.health]} />
             {summary.cooldownCount > 0 ? <StatusBadge label={`${summary.cooldownCount} 个池子冷却`} className="border-orange-200 bg-orange-50 text-orange-700" /> : null}
             {summary.highQuotaCount > 0 ? <StatusBadge label={`${summary.highQuotaCount} 个池子 >80%`} className="border-amber-200 bg-amber-50 text-amber-700" /> : null}
+            {sharedQuota ? <StatusBadge label={sharedQuota} className="border-sky-200 bg-sky-50 text-sky-700" /> : null}
           </div>
           <div className="mt-1 truncate font-mono text-xs text-slate-500">{provider.model}</div>
         </div>

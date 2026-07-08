@@ -200,6 +200,27 @@ export function loadFillClass(cred: GatewayCredential, theme: ProviderTheme): st
   return cred.cooldownReason === "quota" ? "bg-rose-500" : "bg-orange-500";
 }
 
+export function poolRequestMetricLabel(): string {
+  return "近 1h 请求";
+}
+
+export function poolRequestMetricText(requestsLast1h: number | null | undefined): string {
+  return `${poolRequestMetricLabel()} ${requestsLast1h ?? 0} 次`;
+}
+
+function quotaSignature(cred: GatewayCredential): string | null {
+  const fiveHour = cred.quota?.fiveHour;
+  if (!fiveHour) return null;
+  return [fiveHour.usedPct, fiveHour.usedTokens, fiveHour.limitTokens, fiveHour.resetsAt].join("|");
+}
+
+export function sharedQuotaLabel(provider: GatewayProvider): string | null {
+  if (getProviderKind(provider) !== "glm") return null;
+  const signatures = provider.credentials.map(quotaSignature).filter((signature): signature is string => signature !== null);
+  if (signatures.length < 2) return null;
+  return new Set(signatures).size === 1 ? "共享配额" : null;
+}
+
 export function poolStatus(cred: GatewayCredential): { label: string; className: string } {
   if (cred.quotaStatus === "expired") {
     return { label: "key 失效", className: "border-rose-200 bg-rose-50 text-rose-700" };
