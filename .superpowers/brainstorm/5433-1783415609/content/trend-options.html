@@ -1,0 +1,66 @@
+<h2>调用趋势图美化方向</h2>
+<p class="subtitle">已确认采用 A：GLM / MiniMax 双旗舰增强卡。现在需要定趋势图：既更美观，也避免“调用数”和“成功率”双轴混在一起读不准。</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:14px;font-family:Inter,system-ui;color:#0f172a;">
+        <div style="display:grid;grid-template-columns:1.35fr .65fr;gap:12px;">
+          <div style="background:white;border:1px solid #dbeafe;border-radius:14px;padding:12px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:10px"><b>调用吞吐</b><span style="font-size:11px;color:#64748b">近 6 分钟</span></div>
+            <svg viewBox="0 0 300 120" style="width:100%;height:120px;display:block">
+              <defs><linearGradient id="areaA" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#0ea5e9" stop-opacity=".28"/><stop offset="1" stop-color="#0ea5e9" stop-opacity=".03"/></linearGradient></defs>
+              <path d="M0 100 C40 80 52 94 80 66 C112 34 138 76 164 52 C198 20 232 56 300 28 L300 120 L0 120 Z" fill="url(#areaA)"/>
+              <path d="M0 100 C40 80 52 94 80 66 C112 34 138 76 164 52 C198 20 232 56 300 28" fill="none" stroke="#0ea5e9" stroke-width="3" stroke-linecap="round"/>
+              <g fill="#cbd5e1"><rect x="20" y="106" width="10" height="14" rx="3"/><rect x="52" y="96" width="10" height="24" rx="3"/><rect x="84" y="84" width="10" height="36" rx="3"/><rect x="116" y="72" width="10" height="48" rx="3"/><rect x="148" y="88" width="10" height="32" rx="3"/><rect x="180" y="56" width="10" height="64" rx="3"/><rect x="212" y="62" width="10" height="58" rx="3"/><rect x="244" y="42" width="10" height="78" rx="3"/></g>
+            </svg>
+          </div>
+          <div style="display:grid;gap:10px;">
+            <div style="background:white;border:1px solid #dcfce7;border-radius:14px;padding:12px;height:76px;"><div style="font-size:11px;color:#64748b">成功率</div><div style="font-size:24px;font-weight:800;color:#059669">98.6%</div><div style="height:4px;background:linear-gradient(90deg,#10b981 98%,#e2e8f0 98%);border-radius:99px"></div></div>
+            <div style="background:white;border:1px solid #ede9fe;border-radius:14px;padding:12px;height:76px;"><div style="font-size:11px;color:#64748b">Token / min</div><div style="font-size:24px;font-weight:800;color:#7c3aed">42.1k</div><div style="height:22px;background:linear-gradient(90deg,#0ea5e9 55%,#8b5cf6 55%);border-radius:8px;opacity:.75"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A. 推荐：主趋势 + 右侧关键健康小面板</h3>
+      <p>主图只讲调用吞吐，成功率和 token 速率放右侧小面板/迷你图。读数清楚，没有双轴误导，视觉也更高级。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:14px;font-family:Inter,system-ui;color:#0f172a;">
+        <div style="display:grid;grid-template-columns:1fr;gap:8px;">
+          <div style="height:70px;background:white;border:1px solid #e2e8f0;border-radius:12px;padding:10px;"><b>调用数</b><div style="margin-top:12px;height:18px;background:linear-gradient(90deg,#0ea5e9 20%,transparent 20%,transparent 26%,#0ea5e9 26%,#0ea5e9 46%,transparent 46%,transparent 52%,#0ea5e9 52%,#0ea5e9 82%,transparent 82%);opacity:.65"></div></div>
+          <div style="height:70px;background:white;border:1px solid #e2e8f0;border-radius:12px;padding:10px;"><b>成功率</b><div style="margin-top:18px;height:4px;background:#10b981;border-radius:99px;width:92%"></div></div>
+          <div style="height:70px;background:white;border:1px solid #e2e8f0;border-radius:12px;padding:10px;"><b>Token 速率</b><div style="margin-top:18px;height:16px;background:linear-gradient(90deg,#0ea5e9 54%,#8b5cf6 54%);border-radius:8px;width:78%"></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B. 三个等高小倍图</h3>
+      <p>最严谨：调用数、成功率、token 速率各一张小图。读图准确，但页面更像报表，视觉冲击弱一点。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:14px;font-family:Inter,system-ui;color:#0f172a;">
+        <div style="background:white;border:1px solid #e2e8f0;border-radius:14px;padding:12px;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:12px"><b>调用趋势</b><span style="font-size:11px;color:#64748b">调用数 + 成功率</span></div>
+          <div style="height:132px;background:linear-gradient(180deg,#eff6ff,#fff);border-radius:10px;position:relative;overflow:hidden;">
+            <div style="position:absolute;left:20px;right:20px;bottom:20px;height:50px;background:linear-gradient(90deg,#0ea5e9 8%,transparent 8%,transparent 13%,#0ea5e9 13%,#0ea5e9 25%,transparent 25%,transparent 31%,#0ea5e9 31%,#0ea5e9 52%,transparent 52%,transparent 59%,#0ea5e9 59%,#0ea5e9 82%,transparent 82%);opacity:.55"></div>
+            <svg viewBox="0 0 300 120" style="position:absolute;inset:0;width:100%;height:100%"><path d="M0 70 C70 68 88 34 120 44 C160 56 190 30 300 26" fill="none" stroke="#10b981" stroke-width="3"/></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C. 保留组合图，做视觉精修</h3>
+      <p>改动最小：继续柱+线组合。能变漂亮，但仍是双轴/双语义混合，dataviz 角度不推荐。</p>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle">我建议 A。请选一个趋势图方向，或回复你希望“更像大屏 / 更像管理后台报表”。</p>
