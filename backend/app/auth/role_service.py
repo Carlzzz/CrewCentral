@@ -28,9 +28,10 @@ ROLE_MENUS: dict[str, list[str]] = {
         "usage",
         "models.manage",
         "gateway",
+        "providers.manage",
     ],
     "skill_admin": ["home", "download", "docs", "skills", "skills.assignments"],
-    "ops_admin": ["home", "download", "docs", "devices", "releases", "usage", "gateway"],
+    "ops_admin": ["home", "download", "docs", "devices", "releases", "usage", "gateway", "providers.manage"],
     "docs_admin": ["home", "download", "docs", "docs.manage"],
     "viewer": ["home", "download", "docs"],
 }
@@ -48,6 +49,7 @@ ALL_MENU_KEYS: list[dict[str, str]] = [
     {"key": "usage", "label": "用量分析"},
     {"key": "models.manage", "label": "模型权限管理"},
     {"key": "gateway", "label": "网关监控"},
+    {"key": "providers.manage", "label": "Provider 配置"},
 ]
 
 BUILTIN_ROLE_META: dict[str, dict[str, Any]] = {
