@@ -24,6 +24,7 @@ import UsageDashboardPage from "./pages/admin/UsageDashboardPage";
 import UserManagePage from "./pages/admin/UserManagePage";
 import ModelPermissionPage from "./pages/admin/ModelPermissionPage";
 import GatewayDashboardPage from "./pages/admin/GatewayDashboardPage";
+import ProviderConfigPage from "./pages/modelops/ProviderConfigPage";
 
 export default function App() {
   return (
@@ -53,8 +54,14 @@ export default function App() {
         <Route path="docs" element={<DocsEditorPage />} />
         <Route path="users" element={<UserManagePage />} />
         <Route path="models" element={<ModelPermissionPage />} />
+        <Route path="usage" element={<Navigate to="/model-ops/usage" replace />} />
+        <Route path="gateway" element={<Navigate to="/model-ops/gateway" replace />} />
+      </Route>
+      <Route path="/model-ops" element={<AdminLayout />}>
+        <Route index element={<Navigate to="/model-ops/usage" replace />} />
         <Route path="usage" element={<UsageDashboardPage />} />
         <Route path="gateway" element={<GatewayDashboardPage />} />
+        <Route path="providers" element={<ProviderConfigPage />} />
       </Route>
       <Route path="/dashboard/gateway" element={<GatewayDashboardPage />} />
       <Route path="*" element={<Navigate to="/login" replace />} />
