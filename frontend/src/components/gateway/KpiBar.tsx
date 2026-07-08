@@ -1,5 +1,5 @@
-import type { WindowStats } from "../../lib/gateway-api";
-import { activeProviderEmphasis, downProviderEmphasis, successRateEmphasis, type KpiEmphasis } from "./kpi-ui";
+import type { GatewayProvider, WindowStats } from "../../lib/gateway-api";
+import { activeProviderEmphasis, attentionProviderSummary, successRateEmphasis, type KpiEmphasis } from "./kpi-ui";
 
 type KpiBarProps = {
   totals: { last1m: WindowStats; last5m: WindowStats; last1h: WindowStats };
@@ -7,6 +7,7 @@ type KpiBarProps = {
   downProviders?: number;
   lastUpdated: number | null;
   error: string | null;
+  providers?: GatewayProvider[];
 };
 
 function formatTokens(n: number): string {
@@ -47,10 +48,19 @@ function KpiTile({
   );
 }
 
-export default function KpiBar({ totals, activeProviders, downProviders, lastUpdated, error }: KpiBarProps) {
+export default function KpiBar({ totals, activeProviders, downProviders, lastUpdated, error, providers = [] }: KpiBarProps) {
   const tokenRate = (totals.last1m.inputTokens ?? 0) + (totals.last1m.outputTokens ?? 0);
   const successRatePct = (totals.last5m.successRate ?? 0) * 100;
-  const down = downProviders ?? 0;
+  const attention = providers.length > 0
+    ? attentionProviderSummary(providers)
+    : {
+        count: downProviders ?? 0,
+        downCount: downProviders ?? 0,
+        degradedCount: 0,
+        failedProviderCount: 0,
+        emphasis: (downProviders ?? 0) > 0 ? "rose" as const : "emerald" as const,
+        sub: (downProviders ?? 0) > 0 ? "存在异常，请关注" : "全部正常",
+      };
   const updatedText = lastUpdated ? new Date(lastUpdated).toLocaleTimeString() : "—";
 
   return (
@@ -85,10 +95,10 @@ export default function KpiBar({ totals, activeProviders, downProviders, lastUpd
           emphasis={activeProviderEmphasis()}
         />
         <KpiTile
-          label="异常 Provider"
-          value={String(down)}
-          sub={down > 0 ? "存在异常，请关注" : "全部正常"}
-          emphasis={downProviderEmphasis(down)}
+          label="需关注 Provider"
+          value={String(attention.count)}
+          sub={attention.sub}
+          emphasis={attention.emphasis}
         />
       </div>
     </div>

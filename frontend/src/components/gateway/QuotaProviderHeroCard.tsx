@@ -1,4 +1,5 @@
 import type { GatewayCredential, GatewayProvider } from "../../lib/gateway-api";
+import { providerSuccessRateSummary } from "./kpi-ui";
 import {
   clampPct,
   formatCountdown,
@@ -129,9 +130,9 @@ export default function QuotaProviderHeroCard({ provider }: QuotaProviderHeroCar
   const theme = getProviderTheme(provider);
   const summary = poolSummary(provider);
   const sharedQuota = sharedQuotaLabel(provider);
+  const srSummary = providerSuccessRateSummary(provider);
   const stats5m = provider.stats.last5m;
   const stats1m = provider.stats.last1m;
-  const successRatePct = (stats5m.successRate ?? 0) * 100;
   const tokenRate = (stats1m.inputTokens ?? 0) + (stats1m.outputTokens ?? 0);
 
   return (
@@ -155,7 +156,7 @@ export default function QuotaProviderHeroCard({ provider }: QuotaProviderHeroCar
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-2 xl:grid-cols-4">
-        <MetricTile label="成功率 5min" value={`${successRatePct.toFixed(1)}%`} sub={`${stats5m.success ?? 0}/${stats5m.count || 0}`} theme={theme} />
+        <MetricTile label={srSummary.label} value={srSummary.value} sub={srSummary.sub} theme={theme} />
         <MetricTile label="调用 5min" value={String(stats5m.count ?? 0)} sub={`失败 ${stats5m.fail ?? 0}`} theme={theme} />
         <MetricTile label="平均耗时" value={`${Math.round(stats5m.avgCostMs ?? 0)}ms`} sub="最近 5 分钟" theme={theme} />
         <MetricTile label="Token / min" value={formatTokens(tokenRate)} sub={`入 ${formatTokens(stats1m.inputTokens)} · 出 ${formatTokens(stats1m.outputTokens)}`} theme={theme} />

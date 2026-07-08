@@ -24,7 +24,7 @@ export default function GatewayDashboardPage() {
 
         {data ? (
           <>
-            <KpiBar totals={data.totals} activeProviders={data.activeProviders} downProviders={data.downProviders} lastUpdated={lastUpdated} error={error} />
+            <KpiBar totals={data.totals} activeProviders={data.activeProviders} downProviders={data.downProviders} lastUpdated={lastUpdated} error={error} providers={data.providers} />
 
             {split.heroProviders.length > 0 ? (
               <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">

@@ -1,4 +1,5 @@
 import type { GatewayProvider, ProviderHealth } from "../../lib/gateway-api";
+import { providerSuccessRateSummary } from "./kpi-ui";
 
 type ProviderCardProps = {
   provider: GatewayProvider;
@@ -28,11 +29,12 @@ function quotaColor(usedPct: number): string {
   return "bg-sky-500";
 }
 
-function Stat({ label, value, valueClass }: { label: string; value: string; valueClass?: string }) {
+function Stat({ label, value, valueClass, sub }: { label: string; value: string; valueClass?: string; sub?: string }) {
   return (
     <div className="rounded-lg border border-slate-100 bg-white/70 px-2.5 py-2">
       <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">{label}</div>
       <div className={`mt-0.5 text-sm font-bold text-slate-900 ${valueClass ?? ""}`}>{value}</div>
+      {sub ? <div className="mt-0.5 truncate text-[10px] text-slate-400">{sub}</div> : null}
     </div>
   );
 }
@@ -43,8 +45,7 @@ export default function ProviderCard({ provider }: ProviderCardProps) {
   const dotClass = HEALTH_DOT[health];
   const isDown = health === "down";
 
-  const sr5 = (stats.last5m.successRate ?? 0) * 100;
-  const srLow = sr5 < 90;
+  const srSummary = providerSuccessRateSummary(provider);
 
   // mini quota bar: first ok credential with a fiveHour tier
   const quotaCred = credentials.find((c) => c.quotaStatus === "ok" && c.quota?.fiveHour);
@@ -80,9 +81,10 @@ export default function ProviderCard({ provider }: ProviderCardProps) {
 
         <div className="grid grid-cols-3 gap-2">
           <Stat
-            label="成功率 (5min)"
-            value={`${sr5.toFixed(1)}%`}
-            valueClass={srLow ? "text-amber-600" : "text-slate-900"}
+            label={srSummary.label}
+            value={srSummary.value}
+            valueClass={srSummary.valueClass}
+            sub={srSummary.sub}
           />
           <Stat label="调用 (5min)" value={String(stats.last5m.count ?? 0)} />
           <Stat label="均耗时" value={`${Math.round(stats.last5m.avgCostMs ?? 0)}ms`} />
