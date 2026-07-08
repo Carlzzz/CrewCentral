@@ -846,13 +846,14 @@ export default function UsageDashboardPage() {
                       <th className="px-3 py-2 text-right font-medium">输出</th>
                       <th className="px-3 py-2 text-right font-medium">缓存</th>
                       <th className="px-3 py-2 text-right font-medium">耗时</th>
-                      <th className="px-3 py-2 font-medium">流式</th>
+                      <th className="px-3 py-2 font-medium">routing_key</th>
+                      <th className="px-3 py-2 font-medium">session</th>
                     </tr>
                   </thead>
                   <tbody>
                     {records.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="px-3 py-8 text-center text-slate-400">
+                        <td colSpan={9} className="px-3 py-8 text-center text-slate-400">
                           {EMPTY_HINT}
                         </td>
                       </tr>
@@ -886,11 +887,16 @@ export default function UsageDashboardPage() {
                             <td className="px-3 py-2 text-right tabular-nums text-slate-500">
                               {r.cost_time}s
                             </td>
-                            <td className="px-3 py-2 text-slate-400">{r.stream ? "是" : "否"}</td>
+                            <td className="max-w-[120px] truncate px-3 py-2 text-slate-500" title={r.routing_key ?? ""}>
+                              {r.routing_key ?? "-"}
+                            </td>
+                            <td className="max-w-[120px] truncate px-3 py-2 text-slate-500" title={r.session_id ?? ""}>
+                              {r.session_id ?? "-"}
+                            </td>
                           </tr>
                           {expandedRow === i ? (
                             <tr className="bg-slate-50/80">
-                              <td colSpan={8} className="px-3 py-3">
+                              <td colSpan={9} className="px-3 py-3">
                                 <div className="grid gap-3 md:grid-cols-2">
                                   <div>
                                     <p className="mb-1 text-[10px] font-medium text-slate-400">请求摘要</p>
@@ -906,6 +912,7 @@ export default function UsageDashboardPage() {
                                   </div>
                                 </div>
                                 <div className="mt-2 flex flex-wrap gap-3 text-[10px] text-slate-400">
+                                  <span>流式: {r.stream ? "是" : "否"}</span>
                                   {r.session_id ? <span>会话: {r.session_id}</span> : null}
                                   {r.routing_key ? <span>路由: {r.routing_key}</span> : null}
                                   {r.clientid ? <span>客户端: {r.clientid}</span> : null}
