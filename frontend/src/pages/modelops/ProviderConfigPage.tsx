@@ -36,17 +36,23 @@ import {
 /*  Constants                                                          */
 /* ------------------------------------------------------------------ */
 
-const PROVIDERS = [
+// provider is free-form in CrewProxy (it only affects request transformation;
+// unknown values are served via the generic Chat Completions path). The list is
+// offered as suggestions only — any value the operator types is accepted so a
+// real config using e.g. "gpt" displays and round-trips correctly.
+const PROVIDER_SUGGESTIONS = [
   "glm",
   "minimax",
   "openai",
+  "gpt",
   "deepseek",
   "claude",
   "gemini",
   "ark",
+  "zai",
+  "ali",
   "custom",
-] as const;
-type ProviderName = (typeof PROVIDERS)[number];
+];
 
 const UPSTREAM_ID_RE = /^[a-zA-Z0-9_-]+$/;
 
@@ -952,18 +958,19 @@ function UpstreamEditor({
             className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-sm text-slate-700"
           />
         </Field>
-        <Field label="provider">
-          <select
+        <Field label="provider" hint="自由填写，影响请求转换；未知值按通用模式处理">
+          <input
+            list="provider-suggestions"
             value={d.provider}
-            onChange={(e) => onPatchDraft({ provider: e.target.value as ProviderName })}
-            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400"
-          >
-            {PROVIDERS.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
+            placeholder="glm / gpt / openai / ..."
+            onChange={(e) => onPatchDraft({ provider: e.target.value })}
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-sm text-slate-800 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400"
+          />
+          <datalist id="provider-suggestions">
+            {PROVIDER_SUGGESTIONS.map((p) => (
+              <option key={p} value={p} />
             ))}
-          </select>
+          </datalist>
         </Field>
       </div>
 
