@@ -7,7 +7,11 @@ import { splitGatewayProviders } from "../../components/gateway/gateway-ui";
 
 export default function GatewayDashboardPage() {
   const { data, error, lastUpdated, loading, history } = useGatewayMetrics();
-  const split = data ? splitGatewayProviders(data.providers) : { heroProviders: [], otherProviders: [] };
+  const split = data
+    ? splitGatewayProviders(data.providers)
+    : { heroProviders: [], glmProvider: null, minimaxProvider: null, volcengineProvider: null, otherProviders: [] };
+  // Stack GLM + 火山方舟 in one column so the pair balances against MiniMax's taller single card.
+  const useStackedHeroLayout = Boolean(split.glmProvider && split.volcengineProvider && split.minimaxProvider);
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8">
@@ -26,8 +30,16 @@ export default function GatewayDashboardPage() {
           <>
             <KpiBar totals={data.totals} activeProviders={data.activeProviders} downProviders={data.downProviders} lastUpdated={lastUpdated} error={error} providers={data.providers} />
 
-            {split.heroProviders.length > 0 ? (
-              <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            {useStackedHeroLayout ? (
+              <section className="grid grid-cols-1 gap-4 xl:grid-cols-2 xl:items-start">
+                <div className="flex flex-col gap-4">
+                  <QuotaProviderHeroCard provider={split.glmProvider!} />
+                  <QuotaProviderHeroCard provider={split.volcengineProvider!} />
+                </div>
+                <QuotaProviderHeroCard provider={split.minimaxProvider!} />
+              </section>
+            ) : split.heroProviders.length > 0 ? (
+              <section className="grid grid-cols-1 gap-4 xl:grid-cols-2 xl:items-start">
                 {split.heroProviders.map((provider) => (
                   <QuotaProviderHeroCard key={provider.upstreamId} provider={provider} />
                 ))}

@@ -199,6 +199,9 @@ export function getProviderTheme(provider: GatewayProvider): ProviderTheme {
 
 export function splitGatewayProviders(providers: GatewayProvider[]): {
   heroProviders: GatewayProvider[];
+  glmProvider: GatewayProvider | null;
+  minimaxProvider: GatewayProvider | null;
+  volcengineProvider: GatewayProvider | null;
   otherProviders: GatewayProvider[];
 } {
   const glmProvider = mergeHeroProvider("glm", providers.filter((p) => getProviderKind(p) === "glm"));
@@ -206,7 +209,7 @@ export function splitGatewayProviders(providers: GatewayProvider[]): {
   const volcengineProvider = mergeHeroProvider("volcengine", providers.filter((p) => getProviderKind(p) === "volcengine"));
   const heroProviders = [glmProvider, minimaxProvider, volcengineProvider].filter((provider): provider is GatewayProvider => provider !== null);
   const otherProviders = providers.filter((p) => getProviderKind(p) === "other");
-  return { heroProviders, otherProviders };
+  return { heroProviders, glmProvider, minimaxProvider, volcengineProvider, otherProviders };
 }
 
 export function quotaTone(usedPct: number): "normal" | "warning" | "critical" {
