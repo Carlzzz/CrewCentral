@@ -76,6 +76,7 @@ function PoolRow({ cred, maxRequestsLast1h, theme }: { cred: GatewayCredential; 
   const usedPct = clampPct(fiveHour?.usedPct ?? 0);
   const loadPct = clampPct(((cred.requestsLast1h ?? 0) / Math.max(1, maxRequestsLast1h)) * 100);
   const weeklyPct = cred.quota?.weekly?.usedPct;
+  const monthlyPct = cred.quota?.monthly?.usedPct;
 
   return (
     <div className="rounded-xl border border-white/80 bg-white/70 p-3 shadow-sm ring-1 ring-slate-200/60">
@@ -113,12 +114,15 @@ function PoolRow({ cred, maxRequestsLast1h, theme }: { cred: GatewayCredential; 
           <div className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-slate-200/80">
             <div className={`h-full rounded-full ${loadFillClass(cred, theme)}`} style={{ width: `${loadPct}%` }} />
           </div>
-          <div className="mt-1 flex justify-end">
+          <div className="mt-1 flex flex-wrap justify-end gap-1">
             {weeklyPct != null ? (
               <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-500">周 {weeklyPct.toFixed(1)}%</span>
             ) : (
               <span className="text-[10px] text-slate-400">周 —</span>
             )}
+            {monthlyPct != null ? (
+              <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-500">月 {monthlyPct.toFixed(1)}%</span>
+            ) : null}
           </div>
         </div>
       </div>

@@ -1,6 +1,6 @@
 import type { GatewayCredential, GatewayProvider, ProviderHealth, WindowStats } from "../../lib/gateway-api";
 
-export type ProviderKind = "glm" | "minimax" | "other";
+export type ProviderKind = "glm" | "minimax" | "volcengine" | "other";
 
 export type ProviderTheme = {
   kind: ProviderKind;
@@ -41,6 +41,19 @@ const MINIMAX_THEME: ProviderTheme = {
   loadClass: "bg-violet-400",
 };
 
+const VOLCENGINE_THEME: ProviderTheme = {
+  kind: "volcengine",
+  displayName: "火山方舟",
+  accentName: "orange",
+  accentHex: "#f97316",
+  softHex: "#ffedd5",
+  cardClass: "border-orange-200/80 bg-gradient-to-br from-orange-50/80 via-white to-amber-50/50",
+  railClass: "from-orange-400/80 via-amber-300/70 to-orange-200/30",
+  metricClass: "border-orange-100 bg-white/75",
+  quotaClass: "bg-orange-500",
+  loadClass: "bg-orange-400",
+};
+
 const OTHER_THEME: ProviderTheme = {
   kind: "other",
   displayName: "Provider",
@@ -59,6 +72,16 @@ export function formatTokens(n: number | null | undefined): string {
   if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
   if (Math.abs(n) >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
   return String(n);
+}
+
+const CURRENCY_SYMBOL: Record<string, string> = { CNY: "¥", USD: "$", EUR: "€" };
+
+/** Format a monetary balance like "¥3,565.57" (DeepSeek pay-as-you-go). */
+export function formatBalance(amount: number | null | undefined, currency: string): string {
+  if (amount == null || Number.isNaN(amount)) return "—";
+  const symbol = CURRENCY_SYMBOL[currency.toUpperCase()] ?? "";
+  const num = amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return symbol ? `${symbol}${num}` : `${num} ${currency}`;
 }
 
 export function formatCountdown(resetsAt: string | null): string | null {
@@ -86,6 +109,7 @@ export function getProviderKind(provider: GatewayProvider): ProviderKind {
   const key = providerKey(provider);
   if (key.includes("glm") || key.includes("zai") || key.includes("bigmodel")) return "glm";
   if (key.includes("minimax")) return "minimax";
+  if (key.includes("volcengine") || key.includes("volces") || key.includes("ark") || key.includes("doubao")) return "volcengine";
   return "other";
 }
 
@@ -150,9 +174,10 @@ function mergeHeroProvider(kind: Exclude<ProviderKind, "other">, providers: Gate
   );
   const first = providers[0];
 
+  const providerLabel = kind === "glm" ? "GLM" : kind === "minimax" ? "MiniMax" : "火山方舟";
   return {
     upstreamId: upstreamIds.size === 1 ? first.upstreamId : `${kind}:${Array.from(upstreamIds).join("+")}`,
-    provider: kind === "glm" ? "GLM" : "MiniMax",
+    provider: providerLabel,
     model: joinUniqueModels(providers),
     health: worstHealth(providers),
     stats: {
@@ -168,6 +193,7 @@ export function getProviderTheme(provider: GatewayProvider): ProviderTheme {
   const kind = getProviderKind(provider);
   if (kind === "glm") return GLM_THEME;
   if (kind === "minimax") return MINIMAX_THEME;
+  if (kind === "volcengine") return VOLCENGINE_THEME;
   return { ...OTHER_THEME, displayName: provider.provider || provider.upstreamId || "Provider" };
 }
 
@@ -177,7 +203,8 @@ export function splitGatewayProviders(providers: GatewayProvider[]): {
 } {
   const glmProvider = mergeHeroProvider("glm", providers.filter((p) => getProviderKind(p) === "glm"));
   const minimaxProvider = mergeHeroProvider("minimax", providers.filter((p) => getProviderKind(p) === "minimax"));
-  const heroProviders = [glmProvider, minimaxProvider].filter((provider): provider is GatewayProvider => provider !== null);
+  const volcengineProvider = mergeHeroProvider("volcengine", providers.filter((p) => getProviderKind(p) === "volcengine"));
+  const heroProviders = [glmProvider, minimaxProvider, volcengineProvider].filter((provider): provider is GatewayProvider => provider !== null);
   const otherProviders = providers.filter((p) => getProviderKind(p) === "other");
   return { heroProviders, otherProviders };
 }

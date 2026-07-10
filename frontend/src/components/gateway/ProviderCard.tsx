@@ -1,5 +1,6 @@
 import type { GatewayProvider, ProviderHealth } from "../../lib/gateway-api";
 import { providerSuccessRateSummary } from "./kpi-ui";
+import { formatBalance } from "./gateway-ui";
 
 type ProviderCardProps = {
   provider: GatewayProvider;
@@ -51,6 +52,10 @@ export default function ProviderCard({ provider }: ProviderCardProps) {
   const quotaCred = credentials.find((c) => c.quotaStatus === "ok" && c.quota?.fiveHour);
   const usedPct = quotaCred?.quota?.fiveHour?.usedPct ?? null;
   const resetsAt = quotaCred?.quota?.fiveHour?.resetsAt ?? null;
+
+  // account balance (pay-as-you-go providers like DeepSeek): first ok credential with a balance
+  const balanceCred = credentials.find((c) => c.quotaStatus === "ok" && c.quota?.balance);
+  const balance = balanceCred?.quota?.balance ?? null;
 
   return (
     <div
@@ -105,6 +110,14 @@ export default function ProviderCard({ provider }: ProviderCardProps) {
             {resetsAt ? (
               <div className="mt-0.5 text-[10px] text-slate-400">重置于 {new Date(resetsAt).toLocaleString()}</div>
             ) : null}
+          </div>
+        ) : balance !== null ? (
+          <div className="flex items-baseline justify-between rounded-lg border border-slate-100 bg-white/70 px-2.5 py-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">账户余额</span>
+            <span className={`text-base font-bold ${balance.isValid ? "text-slate-900" : "text-rose-600"}`}>
+              {formatBalance(balance.remaining, balance.currency)}
+              {!balance.isValid ? <span className="ml-1 text-[10px] font-semibold text-rose-500">余额不足</span> : null}
+            </span>
           </div>
         ) : (
           <div className="text-[11px] text-slate-400">暂无可用配额数据</div>

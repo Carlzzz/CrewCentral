@@ -17,9 +17,18 @@ export type QuotaTier = {
   resetsAt: string | null;
 };
 
+export type BalanceInfo = {
+  remaining: number;
+  total: number | null;
+  currency: string;
+  isValid: boolean;
+};
+
 export type CredentialQuota = {
   fiveHour?: QuotaTier;
   weekly?: QuotaTier;
+  monthly?: QuotaTier;
+  balance?: BalanceInfo;
   estimated?: boolean;
 } | null;
 
