@@ -613,8 +613,12 @@ export default function UsageDashboardPage() {
 
   const totalPages = Math.ceil(recordsTotal / 30) || 1;
 
-  const cacheHitPct = overview && overview.total_input_tokens > 0
-    ? (overview.total_cached_tokens / overview.total_input_tokens) * 100
+  // input_token 上报口径不含缓存命中部分，真实总输入 = 新输入 + 缓存命中
+  const totalInputTokens = overview
+    ? overview.total_input_tokens + overview.total_cached_tokens
+    : 0;
+  const cacheHitPct = totalInputTokens > 0
+    ? (overview!.total_cached_tokens / totalInputTokens) * 100
     : null;
 
   return (
@@ -719,7 +723,7 @@ export default function UsageDashboardPage() {
               <KpiTile label="输出 Tokens" value={fmtNum(overview.total_output_tokens)} emphasis="amber" />
               <KpiTile
                 label="总 Tokens"
-                value={fmtNum(overview.total_input_tokens + overview.total_output_tokens)}
+                value={fmtNum(totalInputTokens + overview.total_output_tokens)}
                 sub="输入 + 输出"
                 emphasis="emerald"
               />
