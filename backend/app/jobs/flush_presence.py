@@ -4,15 +4,21 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
+import uuid
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 
 from app.core.config import get_settings
-from app.core.redis import get_redis
+from app.core.redis import acquire_or_renew_leader, get_redis, release_leader
 from app.db.devices_session import DevicesAsyncSessionLocal
 from app.models.device import Device, DevicePresence
 from app.services.geo_ip import resolve_geo_label
+
+# Identifies this worker process when contending for the flush leader lease.
+_LEADER_NAME = "flush_presence"
+_LEADER_TOKEN = f"{os.getpid()}:{uuid.uuid4().hex[:8]}"
 
 log = logging.getLogger(__name__)
 
@@ -91,18 +97,47 @@ async def flush_presence_once() -> int:
 
 
 async def flush_presence_loop(stop: asyncio.Event) -> None:
+    """Run the presence flush on a single worker at a time.
+
+    With multiple uvicorn workers each process starts this loop, but only the
+    one holding the Redis leader lease does the actual flush; the rest idle and
+    stand by to take over if the leader dies. The lease TTL is a few intervals
+    long so the leader keeps it across cycles, while a crashed leader's lease
+    expires quickly enough for a standby to pick up the work.
+
+    When Redis is disabled ``acquire_or_renew_leader`` returns False and the
+    flush is skipped — that is correct, because ``flush_presence_once`` has
+    nothing to do without Redis (heartbeats write the DB synchronously).
+    """
     interval = 30
-    while not stop.is_set():
-        try:
-            n = await flush_presence_once()
-            if n:
-                log.debug("flush_presence: updated %s devices", n)
-        except Exception:
-            log.exception("flush_presence failed")
-        try:
-            await asyncio.wait_for(stop.wait(), timeout=interval)
-        except TimeoutError:
-            pass
+    lease_ttl = interval * 3
+    was_leader = False
+    try:
+        while not stop.is_set():
+            try:
+                is_leader = await acquire_or_renew_leader(_LEADER_NAME, _LEADER_TOKEN, lease_ttl)
+                if is_leader:
+                    if not was_leader:
+                        log.info("flush_presence: acquired leader lease (token=%s)", _LEADER_TOKEN)
+                    was_leader = True
+                    n = await flush_presence_once()
+                    if n:
+                        log.debug("flush_presence: updated %s devices", n)
+                elif was_leader:
+                    log.info("flush_presence: lost leader lease (token=%s)", _LEADER_TOKEN)
+                    was_leader = False
+            except Exception:
+                log.exception("flush_presence failed")
+            try:
+                await asyncio.wait_for(stop.wait(), timeout=interval)
+            except TimeoutError:
+                pass
+    finally:
+        if was_leader:
+            try:
+                await release_leader(_LEADER_NAME, _LEADER_TOKEN)
+            except Exception:
+                log.debug("flush_presence: leader release failed on shutdown", exc_info=True)
 
 
 def offline_cutoff() -> datetime:

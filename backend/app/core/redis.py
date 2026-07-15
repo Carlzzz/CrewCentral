@@ -99,3 +99,39 @@ async def expire_presence(device_id: str, ttl_sec: int = 3600) -> None:
     if r is None:
         return
     await r.expire(presence_key(device_id), ttl_sec)
+
+
+def leader_key(name: str) -> str:
+    return f"leader:{name}"
+
+
+async def acquire_or_renew_leader(name: str, token: str, ttl_sec: int) -> bool:
+    """Best-effort single-leader election across worker processes.
+
+    Returns True if this ``token`` currently owns the ``name`` lease. The holder
+    calls this each cycle to renew the TTL; non-holders keep calling so they can
+    take over once the previous leader's lease expires (e.g. its process died).
+    Returns False when Redis is unavailable — callers should then skip the
+    leader-only work (in degraded mode there is nothing for it to do anyway).
+    """
+    r = await get_redis()
+    if r is None:
+        return False
+    key = leader_key(name)
+    # Acquire only if unheld.
+    if await r.set(key, token, nx=True, ex=ttl_sec):
+        return True
+    # Held — renew our own lease, otherwise step down.
+    if await r.get(key) == token:
+        await r.expire(key, ttl_sec)
+        return True
+    return False
+
+
+async def release_leader(name: str, token: str) -> None:
+    r = await get_redis()
+    if r is None:
+        return
+    key = leader_key(name)
+    if await r.get(key) == token:
+        await r.delete(key)
