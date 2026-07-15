@@ -158,6 +158,7 @@ async def list_devices(
     db: Annotated[AsyncSession, Depends(get_db)],
     __: User = Depends(require_session_permission("devices")),
     status: str | None = None,
+    user: str | None = None,
     user_id: str | None = None,
     ip: str | None = None,
     page: int = Query(1, ge=1),
@@ -165,8 +166,34 @@ async def list_devices(
 ) -> dict:
     cutoff = offline_cutoff()
     stmt = select(Device)
-    if user_id:
+
+    # 用户过滤：`user` 支持按用户名 / 邮箱 / 显示名 / user_id 模糊匹配；
+    # `user_id` 保留精确匹配以兼容旧调用。用户信息在主库，设备在设备库，
+    # 无法直接 join，所以先在主库解析出候选 owner_user_id 集合。
+    term = (user or "").strip()
+    if term:
+        like = f"%{term}%"
+        matched = (
+            await db.scalars(
+                select(User.id).where(
+                    or_(
+                        User.id == term,
+                        User.username.ilike(like),
+                        User.email.ilike(like),
+                        User.display_name.ilike(like),
+                    )
+                )
+            )
+        ).all()
+        if not matched:
+            # 没有匹配用户，直接返回空结果，避免全表返回
+            return rc_ok(
+                {"items": [], "total": 0, "page": page, "page_size": page_size, "pages": 1}
+            )
+        stmt = stmt.where(Device.owner_user_id.in_(list(matched)))
+    elif user_id:
         stmt = stmt.where(Device.owner_user_id == user_id)
+
     if ip:
         stmt = stmt.where(Device.last_ip.isnot(None)).where(Device.last_ip.ilike(f"%{ip}%"))
     stmt = _apply_status_filter(stmt, status, cutoff)

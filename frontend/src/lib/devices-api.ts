@@ -31,14 +31,14 @@ export async function fetchDeviceStats(): Promise<RcResponse<DeviceStats>> {
 
 export async function fetchDeviceList(params: {
   status?: string;
-  user_id?: string;
+  user?: string;
   ip?: string;
   page?: number;
   page_size?: number;
 }): Promise<RcResponse<{ items: DeviceRow[]; total: number; page: number; page_size: number; pages: number }>> {
   const q = new URLSearchParams();
   if (params.status) q.set("status", params.status);
-  if (params.user_id) q.set("user_id", params.user_id);
+  if (params.user) q.set("user", params.user);
   if (params.ip) q.set("ip", params.ip);
   q.set("page", String(params.page ?? 1));
   q.set("page_size", String(params.page_size ?? 20));

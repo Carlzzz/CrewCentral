@@ -30,7 +30,7 @@ export default function DeviceManagePage() {
           page: p,
           page_size: 20,
           status: status || undefined,
-          user_id: userId || undefined,
+          user: userId || undefined,
           ip: ip || undefined,
         }),
       ]);
@@ -100,12 +100,12 @@ export default function DeviceManagePage() {
             </select>
           </label>
           <label className="flex flex-col text-xs text-slate-500">
-            用户 ID
+            用户
             <input
               className="mt-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
               value={userDraft}
               onChange={(e) => setUserDraft(e.target.value)}
-              placeholder="owner_user_id"
+              placeholder="用户名 / 邮箱 / 姓名"
             />
           </label>
           <label className="flex flex-col text-xs text-slate-500">
