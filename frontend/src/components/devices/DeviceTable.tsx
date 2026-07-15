@@ -4,7 +4,6 @@ import {
   blockDevice,
   fetchDeviceLogs,
   kickDevice,
-  rebootDevice,
   unblockDevice,
 } from "../../lib/devices-api";
 import HardwareModal from "./HardwareModal";
@@ -25,6 +24,17 @@ function mapStatus(s: string): "online" | "offline" | "blocked" | "error" | "ano
   if (s === "error") return "error";
   if (s === "anomaly") return "anomaly";
   return "offline";
+}
+
+// last_seen_at is a UTC ISO string from the backend. Render it in the viewer's
+// local timezone; a raw substring would show UTC and appear a day behind for
+// UTC+ users in the early hours.
+function formatLastSeen(iso: string | null): string {
+  if (!iso) return "从未";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "从未";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
 export default function DeviceTable({ items, loading, page, pages, onPageChange, onMutate }: Props) {
@@ -51,13 +61,6 @@ export default function DeviceTable({ items, loading, page, pages, onPageChange,
   async function onUnblock(id: string) {
     if (!confirm("确认解封该设备？解封后设备可重新登录。")) return;
     const res = await unblockDevice(id);
-    alert(res.rc === 0 ? res.message : res.message || "失败");
-    if (res.rc === 0) onMutate?.();
-  }
-
-  async function onReboot(id: string) {
-    if (!confirm("确认下发远程重启？")) return;
-    const res = await rebootDevice(id);
     alert(res.rc === 0 ? res.message : res.message || "失败");
     if (res.rc === 0) onMutate?.();
   }
@@ -144,19 +147,10 @@ export default function DeviceTable({ items, loading, page, pages, onPageChange,
                     )}
                   </td>
                   <td className="px-4 py-3 align-top pt-4 font-mono text-xs text-slate-500">
-                    {row.last_seen_at ? row.last_seen_at.substring(0, 19).replace("T", " ") : "从未"}
+                    {formatLastSeen(row.last_seen_at)}
                   </td>
                   <td className="px-4 py-3 align-top pt-3 text-right">
                     <div className="flex justify-end flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => onReboot(row.id)}
-                        disabled={mapStatus(row.status) !== "online"}
-                        className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 hover:bg-amber-100 hover:text-amber-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-amber-50 disabled:hover:text-amber-700 disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-400"
-                        title="下发指令让设备重启"
-                      >
-                        重启
-                      </button>
                       <button
                         type="button"
                         onClick={() => onKick(row.id)}

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -10,13 +11,13 @@ from sqlalchemy import and_, exists, func, literal_column, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_session_permission
-from app.core.redis import set_kick_flag
+from app.core.redis import get_redis, set_kick_flag
 from app.db.devices_session import get_db_devices
 from app.db.session import get_db
 from app.jobs.flush_presence import is_stale_presence, offline_cutoff
 from app.models.blocklist import BlocklistEntry
 from app.models.device import Device, DevicePresence
-from app.models.device_audit import DeviceCommand, DeviceLog
+from app.models.device_audit import DeviceLog
 from app.models.user import User
 from app.schemas.rc import rc_ok
 from app.services.device_audit import append_device_log, record_admin_action
@@ -24,9 +25,59 @@ from app.services.device_audit import append_device_log, record_admin_action
 router = APIRouter(prefix="/admin/devices", tags=["devices-admin"])
 
 
-async def _presence_map(session: AsyncSession) -> dict[str, DevicePresence]:
+async def _presence_map(session: AsyncSession) -> dict[str, datetime]:
+    """Map device_id -> last_seen (UTC-aware).
+
+    Reads the persisted presence rows and overlays the live Redis presence
+    hashes, which are fresher than the periodic flush job. Falling back to the
+    max of the two keeps the admin view accurate even if the flush loop is
+    lagging or has stalled.
+    """
+    result: dict[str, datetime] = {}
     rows = (await session.scalars(select(DevicePresence))).all()
-    return {r.device_id: r for r in rows}
+    for r in rows:
+        dt = _as_utc(r.last_seen_at)
+        if dt is not None:
+            result[r.device_id] = dt
+
+    redis = await get_redis()
+    if redis is not None:
+        keys: list[str] = []
+        async for raw_key in redis.scan_iter("presence:*", count=200):
+            keys.append(raw_key.decode() if isinstance(raw_key, bytes) else raw_key)
+        if keys:
+            pipe = redis.pipeline()
+            for k in keys:
+                pipe.hget(k, "last_seen")
+            values = await pipe.execute()
+            for k, raw in zip(keys, values):
+                if not raw:
+                    continue
+                try:
+                    dt = _as_utc(datetime.fromisoformat(str(raw).replace("Z", "+00:00")))
+                except ValueError:
+                    continue
+                if dt is None:
+                    continue
+                device_id = k.split(":", 1)[-1]
+                existing = result.get(device_id)
+                if existing is None or dt > existing:
+                    result[device_id] = dt
+    return result
+
+
+def _as_utc(dt: datetime | None) -> datetime | None:
+    """Normalise a stored timestamp to a UTC-aware datetime.
+
+    SQLite drops tzinfo, so a value written as ``datetime.now(UTC)`` reads back
+    naive. We treat naive values as UTC (that is how the heartbeat pipeline
+    writes them) so comparisons and serialisation are unambiguous.
+    """
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC)
 
 
 @router.get("/stats")
@@ -43,15 +94,9 @@ async def device_stats(
     offline = 0
     anomaly = 0
     for d in devices:
-        pr = pmap.get(d.id)
-        recent = False
-        if pr is not None:
-            dt = pr.last_seen_at
-            if dt.tzinfo is None:
-                recent = dt >= cutoff.replace(tzinfo=None)
-            else:
-                recent = dt >= cutoff
-                
+        last_seen = pmap.get(d.id)
+        recent = last_seen is not None and last_seen >= cutoff
+
         if d.status == "error":
             anomaly += 1
             continue
@@ -142,14 +187,8 @@ async def list_devices(
 
     items = []
     for d in rows:
-        pr = pmap.get(d.id)
-        recent = False
-        if pr is not None:
-            dt = pr.last_seen_at
-            if dt.tzinfo is None:
-                recent = dt >= cutoff.replace(tzinfo=None)
-            else:
-                recent = dt >= cutoff
+        last_seen = pmap.get(d.id)
+        recent = last_seen is not None and last_seen >= cutoff
 
         if d.status == "blocked":
             st = "blocked"
@@ -176,7 +215,7 @@ async def list_devices(
                 "mac_address": d.mac_address,
                 "current_skill_slug": d.current_skill_slug,
                 "status": st,
-                "last_seen_at": pr.last_seen_at.isoformat() if pr else None,
+                "last_seen_at": last_seen.isoformat() if last_seen else None,
                 "hardware_snapshot": d.hardware_snapshot,
             }
         )
@@ -268,31 +307,6 @@ async def unblock_device(
     await append_device_log(dbs, device_id=dev.id, message=f"管理员 {admin.id} 解封设备")
     await dbs.commit()
     return rc_ok(message="已解封")
-
-
-@router.post("/{device_id}/reboot")
-async def reboot_device(
-    device_id: str,
-    _: Request,
-    dbs: Annotated[AsyncSession, Depends(get_db_devices)],
-    admin: User = Depends(require_session_permission("devices")),
-) -> dict:
-    dev = await dbs.get(Device, device_id)
-    if dev is None:
-        return {"rc": 1, "message": "设备不存在", "data": None}
-    cmd = DeviceCommand(device_id=dev.id, command="reboot", status="pending")
-    dbs.add(cmd)
-    await dbs.flush()
-    await record_admin_action(
-        dbs,
-        actor_user_id=admin.id,
-        device_id=dev.id,
-        action="reboot_cmd",
-        payload={"command_id": cmd.id},
-    )
-    await append_device_log(dbs, device_id=dev.id, message=f"管理员 {admin.id} 下发远程重启")
-    await dbs.commit()
-    return rc_ok({"command_id": cmd.id}, message="已排队远程重启")
 
 
 @router.get("/{device_id}/logs")

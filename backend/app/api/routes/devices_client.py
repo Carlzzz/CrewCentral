@@ -61,9 +61,6 @@ async def register_device(
     return rc_ok(message="ok")
 
 
-from sqlalchemy import select
-from app.models.device_audit import DeviceCommand
-
 @router.post("/heartbeat")
 async def heartbeat(
     request: Request,
@@ -95,24 +92,5 @@ async def heartbeat(
         client_ip=ip,
         current_skill_slug=body.current_skill_slug,
     )
-    
-    # Query pending commands
-    cmds = (
-        await session.scalars(
-            select(DeviceCommand).where(
-                DeviceCommand.device_id == device.id,
-                DeviceCommand.status == "pending"
-            )
-        )
-    ).all()
-    
-    pending_commands = []
-    for c in cmds:
-        pending_commands.append({
-            "id": c.id,
-            "command": c.command,
-        })
-        c.status = "delivered"
-
     await session.commit()
-    return rc_ok({"commands": pending_commands}, message="ok")
+    return rc_ok(message="ok")

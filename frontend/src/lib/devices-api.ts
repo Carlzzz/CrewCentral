@@ -57,10 +57,6 @@ export async function unblockDevice(deviceId: string): Promise<RcResponse<unknow
   return postJson(`/admin/devices/${encodeURIComponent(deviceId)}/unblock`, {});
 }
 
-export async function rebootDevice(deviceId: string): Promise<RcResponse<{ command_id: string }>> {
-  return postJson(`/admin/devices/${encodeURIComponent(deviceId)}/reboot`, {});
-}
-
 export async function fetchDeviceLogs(
   deviceId: string,
   limit = 50,
