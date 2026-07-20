@@ -214,6 +214,13 @@ export default function TopNavBar() {
                     个人中心
                   </Link>
                   <Link
+                    to="/me/usage"
+                    className="block rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
+                    onClick={() => setProfileOpen(false)}
+                  >
+                    我的用量
+                  </Link>
+                  <Link
                     to="/me/change-password"
                     className="block rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
                     onClick={() => setProfileOpen(false)}

@@ -19,6 +19,7 @@ import DocsSearchPage from "./pages/DocsSearchPage";
 import IndexRedirect from "./pages/IndexRedirect";
 import HomePage from "./pages/HomePage";
 import ProfilePage from "./pages/ProfilePage";
+import MyUsagePage from "./pages/MyUsagePage";
 import ChangePasswordPage from "./pages/ChangePasswordPage";
 import UsageDashboardPage from "./pages/admin/UsageDashboardPage";
 import UserManagePage from "./pages/admin/UserManagePage";
@@ -38,6 +39,7 @@ export default function App() {
       <Route path="/cancelled" element={<AuthCancelledPage />} />
       <Route path="/download" element={<DownloadLandingPage />} />
       <Route path="/me/profile" element={<ProfilePage />} />
+      <Route path="/me/usage" element={<MyUsagePage />} />
       <Route path="/me/change-password" element={<ChangePasswordPage />} />
       <Route path="/docs" element={<DocsReaderLayout />}>
         <Route index element={<DocsHomePage />} />
