@@ -63,15 +63,17 @@ async def _require_session_user(request: Request, db: AsyncSession) -> User:
 
 
 def _user_identifiers(user: User) -> list[str]:
-    """All non-empty, deduped identifiers the proxy may record as ``username``.
+    """All non-empty, deduped values CrewProxy may record as ``username`` in ES.
 
-    AD accounts carry ``username`` (sAMAccountName); local email accounts may
-    only have ``email``. The proxy records one of them into ES - matching on
-    both (both DB-unique) is robust to whichever it chose, with negligible
-    collision risk.
+    CrewProxy resolves the user name from CrewCentral's introspect endpoint
+    (``data.name = display_name or email``) and writes it to the usage record's
+    ``username`` field; clients may alternatively pass a name via the
+    ``x-llm-proxy-user`` header. So ES ``username`` is most commonly the
+    display_name, falling back to email - match on all of display_name / email /
+    username to cover every recording path.
     """
     ids: list[str] = []
-    for v in (user.username, user.email):
+    for v in (user.display_name, user.email, user.username):
         if v and v not in ids:
             ids.append(v)
     return ids
