@@ -39,7 +39,7 @@ class Settings(BaseSettings):
 
     # Download center (004-download-center) — defaults for landing when release omits branding
     client_download_default_logo_url: str = ""
-    client_download_default_slogan: str = "CrewCentral 客户端"
+    client_download_default_slogan: str = "AmbiCrew 客户端"
 
     # Proxy usage analytics (Elasticsearch)
     es_node: str = ""

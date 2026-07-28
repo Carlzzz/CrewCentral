@@ -18,7 +18,7 @@ function pickInitialPlatform(
 export default function DownloadLandingPage() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
-  const [slogan, setSlogan] = useState("CrewCentral 客户端");
+  const [slogan, setSlogan] = useState("AmbiCrew 客户端");
   const [logoUrl, setLogoUrl] = useState("");
   const [version, setVersion] = useState("");
   const [publishedAt, setPublishedAt] = useState<string | null>(null);
@@ -39,7 +39,7 @@ export default function DownloadLandingPage() {
         return;
       }
       const d = res.data;
-      setSlogan(d.slogan || "CrewCentral 客户端");
+      setSlogan(d.slogan || "AmbiCrew 客户端");
       setLogoUrl(d.logo_url || "");
       setVersion(d.version || "");
       setPublishedAt(d.published_at || null);
