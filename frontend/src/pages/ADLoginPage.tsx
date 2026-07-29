@@ -1,6 +1,7 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { adLogin } from "../lib/adAuth";
+import { adLogin, fetchAdEnabled } from "../lib/adAuth";
+import { fetchSessionUserinfo } from "../lib/api";
 
 export default function ADLoginPage() {
   const [params] = useSearchParams();
@@ -10,8 +11,36 @@ export default function ADLoginPage() {
   const [password, setPassword] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [ready, setReady] = useState(false);
 
   const isClientAuth = useMemo(() => state.length >= 8, [state]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      // Fall back to email login if AD is not configured on the server.
+      const enabled = await fetchAdEnabled();
+      if (cancelled) return;
+      if (!enabled) {
+        navigate(
+          { pathname: "/login/email", search: isClientAuth ? `?state=${encodeURIComponent(state)}` : "" },
+          { replace: true },
+        );
+        return;
+      }
+      // Redirect away if a session already exists (mirrors email login behaviour).
+      const u = await fetchSessionUserinfo();
+      if (cancelled) return;
+      if (u && !isClientAuth) {
+        navigate(u.is_admin ? "/admin/skills" : "/docs", { replace: true });
+        return;
+      }
+      setReady(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isClientAuth, navigate, state]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -28,6 +57,14 @@ export default function ADLoginPage() {
     } else {
       navigate("/", { replace: true });
     }
+  }
+
+  if (!ready) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_70%_20%,#e0f2fe,transparent_40%),linear-gradient(to_bottom,#fff,#f0f9ff)]">
+        <p className="text-slate-400">加载中…</p>
+      </div>
+    );
   }
 
   return (
@@ -79,7 +116,7 @@ export default function ADLoginPage() {
             {loading ? "登录中…" : "登录"}
           </button>
           <Link
-            to={{ pathname: "/login", search: isClientAuth ? `?state=${encodeURIComponent(state)}` : "" }}
+            to={{ pathname: "/login/email", search: isClientAuth ? `?state=${encodeURIComponent(state)}` : "" }}
             className="block w-full rounded-lg border border-slate-200 py-2.5 text-center text-sm text-slate-600 hover:bg-slate-50"
           >
             使用邮箱账号登录

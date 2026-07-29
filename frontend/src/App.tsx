@@ -32,7 +32,8 @@ export default function App() {
     <Routes>
       <Route path="/" element={<IndexRedirect />} />
       <Route path="/home" element={<HomePage />} />
-      <Route path="/login" element={<LoginPage />} />
+      <Route path="/login" element={<ADLoginPage />} />
+      <Route path="/login/email" element={<LoginPage />} />
       <Route path="/login/ad" element={<ADLoginPage />} />
       <Route path="/consent" element={<ConsentPage />} />
       <Route path="/success" element={<AuthSuccessPage />} />
